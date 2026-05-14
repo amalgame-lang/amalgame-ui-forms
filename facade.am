@@ -350,7 +350,15 @@ public class Widget {
         if (this.Kind == WidgetKind.LABEL()) {
             win.DrawRect(bounds, border)
             if (font != null) {
-                win.DrawText(font, this.Text, this.X + textPadX, textY, textColor)
+                // Label centred horizontally too — feels more
+                // natural for short titles + matches the Button
+                // alignment. Long labels fall back to the padded
+                // origin when MeasureWidth overflows W.
+                let lblW: int = font.MeasureWidth(this.Text)
+                let lblOffset: int = this.W - lblW
+                let lblX: int = this.X + lblOffset / 2
+                if (lblX < this.X + textPadX) { lblX = this.X + textPadX }
+                win.DrawText(font, this.Text, lblX, textY, textColor)
             }
         }
         if (this.Kind == WidgetKind.BUTTON()) {
@@ -364,7 +372,8 @@ public class Widget {
                 // left-aligned position when the text is wider
                 // than the button (offset becomes 0 anyway).
                 let textW: int = font.MeasureWidth(this.Text)
-                let centerX: int = this.X + (this.W - textW) / 2
+                let btnOffset: int = this.W - textW
+                let centerX: int = this.X + btnOffset / 2
                 if (centerX < this.X + textPadX) { centerX = this.X + textPadX }
                 win.DrawText(font, this.Text, centerX, textY, textColor)
             }
