@@ -137,7 +137,10 @@ run_test() {
         -lgc -lm -lcurl -lz -ldl -lpthread $SDL_LIBS -o "$out_base" 2>&1)
     if [ ! -x "$out_base" ]; then
         echo -e "${RED}FAIL${NC} (link)"
-        echo "$gcc_log" | head -5 | sed 's/^/    /'
+        # Larger window than head -5 so undefined-ref errors at
+        # the tail of the gcc/ld output aren't hidden behind
+        # leading warnings.
+        echo "$gcc_log" | head -30 | sed 's/^/    /'
         FAIL=$((FAIL + 1)); return
     fi
     local run_output
