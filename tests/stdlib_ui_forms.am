@@ -39,7 +39,9 @@ class Program {
         }
 
         // ── Widget hit-test ──────────────────────────────
-        let w: Widget = new Widget(10, 20, 100, 50)
+        // Use a Label-kind widget — Contains is kind-agnostic
+        // and the Widget ctor now requires a kind/text payload.
+        let w: Widget = Widget.Label("hit", 10, 20, 100, 50)
         let hitOk: bool = w.Contains(50, 40)         // inside
         if (hitOk) { hitOk = !w.Contains(5, 40) }    // outside left
         if (hitOk) { hitOk = !w.Contains(115, 40) }  // outside right
@@ -52,37 +54,37 @@ class Program {
             Console.WriteLine("[FAIL] Widget hit-test")
         }
 
-        // ── Label construction ───────────────────────────
-        // Inherited methods (GetW / GetVisible from Widget) must
-        // be invoked on a Widget-typed local because the cgen
-        // doesn't rewrite Label-receiver method dispatch to walk
-        // the base class. Subclass-owned methods (GetText) work
-        // directly.
-        let lbl: Label = new Label("hi", 0, 0, 80, 24)
-        let lblAsWidget: Widget = lbl
-        let lblOk: bool = lbl.GetText() == "hi"
-        if (lblOk) { lblOk = lblAsWidget.GetW() == 80 }
-        if (lblOk) { lblOk = lblAsWidget.GetVisible() }
+        // ── Label widget (via class-with-tag factory) ────
+        // Widget.Label() / Widget.Button() return a Widget with
+        // Kind tagged appropriately — no separate Label/Button
+        // classes (see facade.am for why inheritance was dropped).
+        let lbl: Widget = Widget.Label("hi", 0, 0, 80, 24)
+        let lblOk: bool = lbl.GetKind() == WidgetKind.LABEL()
+        if (lblOk) { lblOk = lbl.GetText() == "hi" }
+        if (lblOk) { lblOk = lbl.GetW() == 80 }
+        if (lblOk) { lblOk = lbl.GetVisible() }
         if (lblOk) {
-            Console.WriteLine("[PASS] Label construction")
+            Console.WriteLine("[PASS] Label widget")
         } else {
-            Console.WriteLine("[FAIL] Label construction")
+            Console.WriteLine("[FAIL] Label widget")
         }
 
-        // ── Button construction + default OnClick ────────
-        let btn: Button = new Button("OK", 5, 5, 100, 30)
-        let btnOk: bool = btn.GetText() == "OK"
+        // ── Button widget + default OnClick ──────────────
+        let btn: Widget = Widget.Button("OK", 5, 5, 100, 30)
+        let btnOk: bool = btn.GetKind() == WidgetKind.BUTTON()
+        if (btnOk) { btnOk = btn.GetText() == "OK" }
         if (btnOk) { btnOk = !btn.GetPressed() }
         if (btnOk) {
-            // Simulate a click — default OnClick flips Pressed.
+            // Simulate a click — default OnClick flips Pressed
+            // for Button-kind widgets.
             let fakeEv: Event = new Event()
             btn.OnClick(fakeEv)
             btnOk = btn.GetPressed()
         }
         if (btnOk) {
-            Console.WriteLine("[PASS] Button construction + OnClick")
+            Console.WriteLine("[PASS] Button widget + OnClick")
         } else {
-            Console.WriteLine("[FAIL] Button construction + OnClick")
+            Console.WriteLine("[FAIL] Button widget + OnClick")
         }
 
         // ── Form add + child count ───────────────────────
@@ -91,16 +93,8 @@ class Program {
         if (fOk) { fOk = f.GetTitle() == "smoke" }
         if (fOk) { fOk = f.GetWidth() == 320 }
         if (fOk) {
-            // Bootstrap typechecker rejects `let w: Widget = lbl`
-            // even though Label extends Widget — no implicit
-            // upcast at assignment yet. Use plain Widget
-            // instances for the child-count smoke; Label/Button
-            // membership of Form.Children gets exercised once
-            // amc grows the coercion.
-            let w1: Widget = new Widget(0, 0, 80, 24)
-            let w2: Widget = new Widget(5, 5, 100, 30)
-            f.Add(w1)
-            f.Add(w2)
+            f.Add(lbl)
+            f.Add(btn)
             fOk = f.ChildCount() == 2
         }
         if (fOk) {
