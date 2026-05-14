@@ -5,36 +5,54 @@ namespace Amalgame.UI.Forms
 // ═══════════════════════════════════════════════════════
 //
 // Public surface (v0.0.2):
-//   Theme.Light() / Theme.Dark() / Theme.FromOS()
+//   Color                — RGBA primitive (local copy, see note)
+//   Theme.Light() / Dark() / FromOS()
 //     — colour palettes (Background/Surface/Text/Accent/Border/TextMuted)
 //     — FromOS picks Light or Dark from the host appearance probe
-//       in amalgame-ui-sdl's runtime header.
+//       baked into amalgame-ui-sdl's runtime header.
+//
+// Why a local `Color` copy?
+//   amc 0.8.6's `amc --lib` doesn't resolve cross-package types
+//   when pre-compiling a facade.am alone — the cgen mangles
+//   `import Amalgame.UI.SDL`'s `Color` as if it lived in the
+//   current package (`Amalgame_UI_Forms_Color`) and gcc later
+//   trips on the missing struct definition. Until amc grows
+//   --lib lockfile support (tracked for ui-forms v0.1.0), we
+//   ship a Color *local* to Amalgame.UI.Forms. When v0.1.0
+//   wires Widget/Form/Application against amalgame-ui-sdl's
+//   Color, we either revisit the duplication or accept it as
+//   the visible cost of the namespace split.
 //
 // Out of scope for v0.0.2 (deferred to v0.1.0):
 //   Widget / Label / Button / Form / Application.Run.
-//   These ran into a stack of open amc 0.8.6 bootstrap bugs:
-//     - inherited-method dispatch (Label.GetW() → Label_GetW)
-//     - no implicit Label* → Widget* upcast (typechecker rejects)
-//     - in multi-file `amc -o test.am sdl/facade.am forms/facade.am`
-//       compiles, the cgen forward-declares struct types ahead
-//       of their definitions, so `self->Handle` field access in
-//       @c blocks hits "incomplete typedef" from gcc.
-//   v0.1.0 picks these up after amc lands fixes — tracked in
-//   ROADMAP_COMPLET.md under "Compiler open bugs".
-//
-// Why does FromOS work even though Window/Event/Font don't?
-//   The `defaults read` / registry / gsettings probe lives entirely
-//   in `runtime/Amalgame_UI.h` as a C-only helper that returns
-//   `code_string`. ui-forms can `#include` that header via a
-//   file-scope @c block and call `Amalgame_UI_DetectOSTheme()`
-//   directly — no cross-package AM types involved, no resolver
-//   round-trip, no multi-file struct ordering issue.
+//   The class-with-tag refactor (commit 981f71e) hit further
+//   amc bugs (multi-file struct ordering breaks @c block field
+//   access in ui-sdl's Window/Event/Font). Picked back up once
+//   amc lands the missing pieces (tracked in ROADMAP_COMPLET.md
+//   under "Compiler open bugs").
 
 @c {
     #include "Amalgame_UI.h"
 }
 
-import Amalgame.UI.SDL
+public class Color {
+    public R: int
+    public G: int
+    public B: int
+    public A: int
+
+    public Color(r: int, g: int, b: int, a: int) {
+        this.R = r
+        this.G = g
+        this.B = b
+        this.A = a
+    }
+
+    public int GetR() { return this.R }
+    public int GetG() { return this.G }
+    public int GetB() { return this.B }
+    public int GetA() { return this.A }
+}
 
 public class Theme {
     public Background: Color
@@ -53,10 +71,6 @@ public class Theme {
         this.Border = border
     }
 
-    // Get* accessors so consumer code reads fields without
-    // bumping into the cgen's "incomplete external typedef"
-    // gcc error. Internal code (the static factories below)
-    // still uses direct this.Field syntax.
     public Color GetBackground() { return this.Background }
     public Color GetSurface()    { return this.Surface }
     public Color GetText()       { return this.Text }
@@ -86,9 +100,8 @@ public class Theme {
 
     // Returns Light() or Dark() based on the host's current
     // appearance setting. Calls the C-side probe in ui-sdl's
-    // runtime header directly (the @c block at file scope above
-    // brings it in) — bypassing OSTheme.DetectOS sidesteps the
-    // amc --lib cross-package resolver limitation.
+    // runtime header directly (the file-scope @c block above
+    // brings it in) — no Amalgame.UI.SDL import needed.
     public static Theme FromOS() {
         let isDark: bool = false
         @c {
