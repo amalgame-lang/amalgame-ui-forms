@@ -43,8 +43,15 @@ jobs:
             "https://github.com/amalgame-lang/Amalgame/releases/download/${TAG}/amc-${VERSION}-linux-x86_64.tar.gz"
           mkdir -p $RUNNER_TEMP/amc-install
           tar -xzf amc.tar.gz -C $RUNNER_TEMP/amc-install --strip-components=1
-          echo "AMC=$RUNNER_TEMP/amc-install/amc" >> $GITHUB_ENV
-          echo "AMC_RUNTIME=$RUNNER_TEMP/amc-install/runtime" >> $GITHUB_ENV
+          # XDG layout since amc v0.8.1 (PR #398): bin/amc and
+          # share/amalgame/runtime/ instead of flat amc + runtime/.
+          if [ -x "$RUNNER_TEMP/amc-install/bin/amc" ]; then
+            echo "AMC=$RUNNER_TEMP/amc-install/bin/amc" >> $GITHUB_ENV
+            echo "AMC_RUNTIME=$RUNNER_TEMP/amc-install/share/amalgame/runtime" >> $GITHUB_ENV
+          else
+            echo "AMC=$RUNNER_TEMP/amc-install/amc" >> $GITHUB_ENV
+            echo "AMC_RUNTIME=$RUNNER_TEMP/amc-install/runtime" >> $GITHUB_ENV
+          fi
           echo "UI_SDL_ROOT=$GITHUB_WORKSPACE/amalgame-ui-sdl" >> $GITHUB_ENV
 
       - name: Verify amc
