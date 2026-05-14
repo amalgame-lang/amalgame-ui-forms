@@ -892,11 +892,11 @@ public class Form {
     // Returns null when none exists (Application.Run skips key
     // dispatch in that case).
     //
-    // The trailing fallback uses an @c block — the bootstrap
-    // typechecker rejects `return null` for a Widget-typed
-    // method even though null is the legal Widget* value at
-    // the C level. Same workaround used in amc's own bundled
-    // stdlib for JsonValue.GetOrNull / similar.
+    // Returns the focused widget, or null when none has focus.
+    // (The trailing `@c { return NULL; }` workaround that lived
+    // here was needed before amc fixed the typechecker bug
+    // rejecting `return null` for class return types — clean
+    // version since amc v0.8.10.)
     public Widget FocusedWidget() {
         let n: int = this.Children.Count()
         var i: int = n - 1
@@ -907,9 +907,7 @@ public class Form {
             }
             i = i - 1
         }
-        @c {
-            return NULL;
-        }
+        return null
     }
 
     // Request the event loop to bail on its next iteration.
