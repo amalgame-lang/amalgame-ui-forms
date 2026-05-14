@@ -532,7 +532,11 @@ public class Widget {
                 this.Open = !this.Open
             } else if (this.Open) {
                 // Click on a dropdown row → select + close.
-                let idx: int = (dy - this.H) / this.H
+                // Local extraction avoids the cgen parens-lost
+                // bug on `(dy - H) / H` (CONTINUATION gotcha).
+                let belowDy: int = dy - this.H
+                let rowH: int = this.H
+                let idx: int = belowDy / rowH
                 let n: int = this.Items.Count()
                 if (idx < n) {
                     this.SelectedIndex = idx
@@ -545,7 +549,9 @@ public class Widget {
             let dy: int = e.GetY() - this.Y
             if (n > 0 && dy >= 0 && dy < this.H) {
                 let cellW: int = this.W / n
-                let idx: int = (e.GetX() - this.X) / cellW
+                // Local extraction — parens-lost bug otherwise.
+                let dx: int = e.GetX() - this.X
+                let idx: int = dx / cellW
                 if (idx >= 0 && idx < n) {
                     if (this.Open && idx == this.SelectedIndex) {
                         // Toggle the same title closed.
