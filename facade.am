@@ -370,7 +370,14 @@ public class Form {
     public Width:      int
     public Height:     int
     public Children:   List<Widget>
-    public Layout:     Layout    // null = absolute (no-op)
+    // Field renamed from `Layout` → `LayoutRef` because the cgen
+    // mangles `self->Layout` collision-free at the C level only
+    // when the field name doesn't shadow the type name. With
+    // both called Layout, the assignment `self->Layout = l` was
+    // emitted but never picked up by reads (probably hitting the
+    // typedef instead of the struct member). Renaming the field
+    // sidesteps it.
+    public LayoutRef:  Layout    // null = no layout = absolute
     public ShouldExit: bool
 
     public Form(title: string, w: int, h: int) {
@@ -378,7 +385,7 @@ public class Form {
         this.Width      = w
         this.Height     = h
         this.Children   = new List<Widget>()
-        this.Layout     = null
+        this.LayoutRef  = null
         this.ShouldExit = false
     }
 
@@ -386,7 +393,7 @@ public class Form {
     public int    GetWidth()   { return this.Width }
     public int    GetHeight()  { return this.Height }
     public int    ChildCount() { return this.Children.Count() }
-    public Layout GetLayout()  { return this.Layout }
+    public Layout GetLayout()  { return this.LayoutRef }
 
     public void Add(child: Widget) {
         this.Children.Add(child)
@@ -401,14 +408,14 @@ public class Form {
     // let Application.Run apply it once at startup + on every
     // window-resize event.
     public void SetLayout(l: Layout) {
-        this.Layout = l
+        this.LayoutRef = l
     }
 
     // Reposition children against the form's current size.
     // No-op when no layout is set.
     public void ApplyLayout() {
-        if (this.Layout != null) {
-            this.Layout.Apply(this.Children, this.Width, this.Height)
+        if (this.LayoutRef != null) {
+            this.LayoutRef.Apply(this.Children, this.Width, this.Height)
         }
     }
 
