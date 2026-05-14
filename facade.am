@@ -47,6 +47,17 @@ public class Theme {
         this.Border = border
     }
 
+    // Get* accessors so consumer code reads fields without
+    // bumping into the cgen's "incomplete external typedef"
+    // gcc error. Internal code (the static factories below)
+    // still uses direct this.Field syntax.
+    public Color GetBackground() { return this.Background }
+    public Color GetSurface()    { return this.Surface }
+    public Color GetText()       { return this.Text }
+    public Color GetTextMuted()  { return this.TextMuted }
+    public Color GetAccent()     { return this.Accent }
+    public Color GetBorder()     { return this.Border }
+
     public static Theme Light() {
         return new Theme(
             new Color(245, 245, 247, 255),  // background

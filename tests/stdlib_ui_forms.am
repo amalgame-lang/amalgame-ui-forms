@@ -8,7 +8,7 @@ class Program {
         // access on an incomplete external typedef is rejected
         // by gcc.
         let light: Theme = Theme.Light()
-        let surf: Color = light.Surface
+        let surf: Color = light.GetSurface()
         let surfOk: bool = surf.GetR() == 255
         if (surfOk) { surfOk = surf.GetG() == 255 }
         if (surfOk) { surfOk = surf.GetB() == 255 }
@@ -20,7 +20,7 @@ class Program {
 
         // ── Theme.Dark background ────────────────────────
         let dark: Theme = Theme.Dark()
-        let bg: Color = dark.Background
+        let bg: Color = dark.GetBackground()
         let bgOk: bool = bg.GetR() < 50
         if (bgOk) { bgOk = bg.GetG() < 50 }
         if (bgOk) { bgOk = bg.GetB() < 50 }
