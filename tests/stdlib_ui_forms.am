@@ -37,5 +37,75 @@ class Program {
         } else {
             Console.WriteLine("[FAIL] Theme.FromOS null")
         }
+
+        // ── Widget hit-test ──────────────────────────────
+        let w: Widget = new Widget(10, 20, 100, 50)
+        let hitOk: bool = w.Contains(50, 40)         // inside
+        if (hitOk) { hitOk = !w.Contains(5, 40) }    // outside left
+        if (hitOk) { hitOk = !w.Contains(115, 40) }  // outside right
+        if (hitOk) { hitOk = !w.Contains(50, 80) }   // outside bottom
+        if (hitOk) { hitOk = w.Contains(10, 20) }    // on top-left corner (inclusive)
+        if (hitOk) { hitOk = !w.Contains(110, 70) }  // bottom-right (exclusive)
+        if (hitOk) {
+            Console.WriteLine("[PASS] Widget hit-test")
+        } else {
+            Console.WriteLine("[FAIL] Widget hit-test")
+        }
+
+        // ── Label construction ───────────────────────────
+        let lbl: Label = new Label("hi", 0, 0, 80, 24)
+        let lblOk: bool = lbl.GetText() == "hi"
+        if (lblOk) { lblOk = lbl.GetW() == 80 }
+        if (lblOk) { lblOk = lbl.GetVisible() }
+        if (lblOk) {
+            Console.WriteLine("[PASS] Label construction")
+        } else {
+            Console.WriteLine("[FAIL] Label construction")
+        }
+
+        // ── Button construction + default OnClick ────────
+        let btn: Button = new Button("OK", 5, 5, 100, 30)
+        let btnOk: bool = btn.GetText() == "OK"
+        if (btnOk) { btnOk = !btn.GetPressed() }
+        if (btnOk) {
+            // Simulate a click — default OnClick flips Pressed.
+            let fakeEv: Event = new Event()
+            btn.OnClick(fakeEv)
+            btnOk = btn.GetPressed()
+        }
+        if (btnOk) {
+            Console.WriteLine("[PASS] Button construction + OnClick")
+        } else {
+            Console.WriteLine("[FAIL] Button construction + OnClick")
+        }
+
+        // ── Form add + child count ───────────────────────
+        let f: Form = new Form("smoke", 320, 240)
+        let fOk: bool = f.ChildCount() == 0
+        if (fOk) { fOk = f.GetTitle() == "smoke" }
+        if (fOk) { fOk = f.GetWidth() == 320 }
+        if (fOk) {
+            f.Add(lbl)
+            f.Add(btn)
+            fOk = f.ChildCount() == 2
+        }
+        if (fOk) {
+            Console.WriteLine("[PASS] Form add + child count")
+        } else {
+            Console.WriteLine("[FAIL] Form add + child count")
+        }
+
+        // ── Form.Close flips ShouldClose ─────────────────
+        let f2: Form = new Form("close-me", 100, 100)
+        let cOk: bool = !f2.ShouldClose()
+        if (cOk) {
+            f2.Close()
+            cOk = f2.ShouldClose()
+        }
+        if (cOk) {
+            Console.WriteLine("[PASS] Form.Close sets ShouldClose")
+        } else {
+            Console.WriteLine("[FAIL] Form.Close")
+        }
     }
 }
