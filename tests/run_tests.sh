@@ -85,45 +85,17 @@ export AMALGAME_PACKAGES_DIR="$FAKE_CACHE"
 echo "  cache:     $FAKE_CACHE"
 echo ""
 
-# ── Pre-build both facade archives ──
-# `amc --lib a.am b.am` only emits the LAST file's symbols (no
-# multi-input merge), so we run two separate amc --lib calls.
-# ui-forms must be compiled from a cwd that carries amalgame.lock
-# pointing into the cache — otherwise the resolver bails on
-# OSTheme / Color / Window with "Unknown symbol".
-FACADE_BUILD_DIR="$BUILD_DIR/facade"
-mkdir -p "$FACADE_BUILD_DIR"
-SDL_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-ui-sdl.a"
-FORMS_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-ui-forms.a"
-
-echo "── Pre-compiling ui-sdl facade.am → $(basename "$SDL_ARCHIVE") ──"
-"$AMC" --lib --quiet "$UI_SDL_ROOT/facade.am" -o "$FACADE_BUILD_DIR/sdl-facade" 2>&1 | head -5
-if [ ! -f "$FACADE_BUILD_DIR/sdl-facade.c" ]; then
-    echo "ERROR: amc failed to emit sdl-facade.c" >&2; exit 1
-fi
-gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS -w -c \
-    "$FACADE_BUILD_DIR/sdl-facade.c" -o "$FACADE_BUILD_DIR/sdl-facade.o" 2>&1 | head -10
-if [ ! -f "$FACADE_BUILD_DIR/sdl-facade.o" ]; then
-    echo "ERROR: gcc failed to build sdl-facade.o" >&2; exit 1
-fi
-ar rcs "$SDL_ARCHIVE" "$FACADE_BUILD_DIR/sdl-facade.o"
-
-echo "── Pre-compiling ui-forms facade.am → $(basename "$FORMS_ARCHIVE") ──"
-# Run from $PROJ_DIR so amc reads amalgame.lock and the cache
-# symlinks resolve OSTheme/Color/Window from ui-sdl.
-(cd "$PROJ_DIR" && "$AMC" --lib --quiet "$PKG_ROOT/facade.am" -o "$FACADE_BUILD_DIR/forms-facade" 2>&1 | head -5)
-if [ ! -f "$FACADE_BUILD_DIR/forms-facade.c" ]; then
-    echo "ERROR: amc failed to emit forms-facade.c" >&2; exit 1
-fi
-gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS -w -c \
-    "$FACADE_BUILD_DIR/forms-facade.c" -o "$FACADE_BUILD_DIR/forms-facade.o" 2>&1 | head -10
-if [ ! -f "$FACADE_BUILD_DIR/forms-facade.o" ]; then
-    echo "ERROR: gcc failed to build forms-facade.o" >&2; exit 1
-fi
-ar rcs "$FORMS_ARCHIVE" "$FACADE_BUILD_DIR/forms-facade.o"
-
-echo "  built: $SDL_ARCHIVE + $FORMS_ARCHIVE"
-echo ""
+# ── Test runner ──
+# No pre-compile facade step: amc --lib doesn't handle
+# cross-package types (standalone resolves OSTheme/Color as
+# Unknown), and multi-input --lib collapses every namespace
+# into the first file's. We sidestep both by compiling
+# test.am + ui-sdl/facade.am + ui-forms/facade.am in ONE
+# `amc -o` invocation (non-lib mode). amc preserves the
+# per-file `namespace` directives so symbols stay mangled
+# correctly (Amalgame_UI_SDL_* vs Amalgame_UI_Forms_*), and
+# emits a single self-contained test.c that gcc links with
+# the system libs.
 
 run_test() {
     local name="$1"; local expected="$2"
@@ -131,20 +103,16 @@ run_test() {
     cp "$SCRIPT_DIR/stdlib_ui_forms.am" "$PROJ_DIR/test.am"
     local out_base="$PROJ_DIR/test"
     local out
-    out=$(cd "$PROJ_DIR" && "$AMC" -o test test.am --quiet 2>&1)
+    out=$(cd "$PROJ_DIR" && "$AMC" -o test test.am \
+        "$UI_SDL_ROOT/facade.am" "$PKG_ROOT/facade.am" --quiet 2>&1)
     if [ $? -ne 0 ]; then
         echo -e "${RED}FAIL${NC} (amc error)"
-        echo "$out" | head -5 | sed 's/^/    /'
+        echo "$out" | head -10 | sed 's/^/    /'
         FAIL=$((FAIL + 1)); return
     fi
     if [ ! -f "$out_base.c" ]; then echo -e "${RED}FAIL${NC} (no .c)"; FAIL=$((FAIL + 1)); return; fi
     local gcc_log
-    # Link order: test.c + ui-forms archive (Theme, Application,
-    # Widget, Form…) + ui-sdl archive (Color, OSTheme, Window…)
-    # + system libs. ui-forms is listed first because some of
-    # its symbols reference ui-sdl ones during link resolution.
     gcc_log=$(gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS "$out_base.c" \
-        "$FORMS_ARCHIVE" "$SDL_ARCHIVE" \
         -lgc -lm -lcurl -lz -ldl -lpthread $SDL_LIBS -o "$out_base" 2>&1)
     if [ ! -x "$out_base" ]; then
         echo -e "${RED}FAIL${NC} (link)"
