@@ -414,6 +414,16 @@ public class Widget {
             win.DrawRect(bounds, bc)
             if (font != null) {
                 win.DrawText(font, this.Text, this.X + textPadX, textY, textColor)
+                // Static caret at CursorPos when focused — gives a
+                // clear "you can type here" signal.
+                if (this.Focused) {
+                    let prefix: string = String_Substring(this.Text, 0, this.CursorPos)
+                    let prefixW: int = font.MeasureWidth(prefix)
+                    let cx: int = this.X + textPadX + prefixW
+                    let cy1: int = this.Y + 4
+                    let cy2: int = this.Y + this.H - 4
+                    win.DrawLine(cx, cy1, cx, cy2, textColor)
+                }
             }
         }
         if (this.Kind == WidgetKind.LISTBOX()) {
@@ -630,7 +640,6 @@ public class Widget {
         if (!this.Focused) { return }
         let key: int = e.GetButton()
         let len: int = String_Length(this.Text)
-        Console.WriteLine("[trace] HandleKey TEXTBOX key=" + String_FromInt(key) + " len=" + String_FromInt(len))
 
         // Backspace = SDLK_BACKSPACE = 8
         if (key == 8) {
@@ -979,6 +988,20 @@ public class Application {
         // and window opening — high-DPI scaling, tiling WMs, …).
         form.ApplyLayout()
 
+        // Initial render — Wait() blocks until the first event, so
+        // without this paint the window stays blank until the user
+        // moves the mouse over it. Repaints follow events inside
+        // the loop body below.
+        win.Clear(bg)
+        let n0: int = form.ChildCount()
+        var k0: int = 0
+        while (k0 < n0) {
+            let w0: Widget = form.GetChild(k0)
+            w0.Render(win, theme, font)
+            k0 = k0 + 1
+        }
+        win.Present()
+
         while (!win.ShouldClose() && !form.ShouldClose()) {
             let e: Event = win.Wait()
             let kind: int = e.GetKind()
@@ -1043,8 +1066,6 @@ public class Application {
                 let focused: Widget = form.FocusedWidget()
                 if (focused != null) {
                     focused.HandleKey(e)
-                } else {
-                    Console.WriteLine("[trace] KEY_DOWN but no widget focused (key=" + String_FromInt(e.GetButton()) + ")")
                 }
             }
 
