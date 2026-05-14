@@ -300,11 +300,26 @@ public class Widget {
     }
 
     // Half-open rectangle: [X, X+W) × [Y, Y+H).
+    //
+    // Extended downward when an open dropdown (ComboBox / MenuBar)
+    // hangs below the closed row — otherwise clicks on dropdown
+    // items would miss the hit-test and never reach OnClick.
     public bool Contains(px: int, py: int) {
         if (px < this.X) { return false }
         if (px >= this.X + this.W) { return false }
         if (py < this.Y) { return false }
-        if (py >= this.Y + this.H) { return false }
+        var bottom: int = this.Y + this.H
+        if (this.Open) {
+            if (this.Kind == WidgetKind.COMBOBOX()) {
+                let n: int = this.Items.Count()
+                bottom = bottom + n * this.H
+            }
+            if (this.Kind == WidgetKind.MENUBAR()) {
+                let n: int = this.Items.Count()
+                bottom = bottom + n * this.H
+            }
+        }
+        if (py >= bottom) { return false }
         return true
     }
 
@@ -586,11 +601,19 @@ public class Widget {
                         this.Open = true
                     }
                 }
+            } else if (this.Open && dy >= this.H && n > 0) {
+                // Click in dropdown row: store row label in Text so
+                // consumer code can read widget.GetText(), and close
+                // the dropdown. (Proper callback wiring lands when
+                // ui-forms gets Closures-in-fields support.)
+                let belowDy: int = dy - this.H
+                let rowH: int = this.H
+                let idx: int = belowDy / rowH
+                if (idx >= 0 && idx < n) {
+                    this.Text = this.Items.Get(idx)
+                }
+                this.Open = false
             }
-            // v0.0.7: clicking the dropdown rows is a no-op
-            // (no callback wiring yet). Click outside the bar
-            // is handled by Application.Run's mouse-down path
-            // closing menus — we'll add that hook in v0.0.8.
         }
     }
 
@@ -607,6 +630,7 @@ public class Widget {
         if (!this.Focused) { return }
         let key: int = e.GetButton()
         let len: int = String_Length(this.Text)
+        Console.WriteLine("[trace] HandleKey TEXTBOX key=" + String_FromInt(key) + " len=" + String_FromInt(len))
 
         // Backspace = SDLK_BACKSPACE = 8
         if (key == 8) {
@@ -996,6 +1020,22 @@ public class Application {
                 }
             }
 
+            // MOUSE_UP: release Pressed state on every Button so
+            // its visual highlight clears once the user lifts the
+            // mouse. Without this the first clicked button stays
+            // accent-colour forever.
+            if (kind == EventKind.MOUSE_UP()) {
+                let n: int = form.ChildCount()
+                var i: int = 0
+                while (i < n) {
+                    let w: Widget = form.GetChild(i)
+                    if (w.GetKind() == WidgetKind.BUTTON()) {
+                        w.SetPressed(false)
+                    }
+                    i = i + 1
+                }
+            }
+
             // KEY_DOWN goes to the currently focused widget
             // (typically a TEXTBOX). Nothing to dispatch when
             // no widget has Focused=true.
@@ -1003,6 +1043,8 @@ public class Application {
                 let focused: Widget = form.FocusedWidget()
                 if (focused != null) {
                     focused.HandleKey(e)
+                } else {
+                    Console.WriteLine("[trace] KEY_DOWN but no widget focused (key=" + String_FromInt(e.GetButton()) + ")")
                 }
             }
 
