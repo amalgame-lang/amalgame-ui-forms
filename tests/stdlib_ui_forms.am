@@ -133,17 +133,25 @@ class Program {
         // Form 200×400, padding=10, spacing=10, 3 widgets:
         // child width = 200-2*10 = 180; child height =
         // (400-2*10-2*10)/3 = 116 (truncated).
+        //
+        // Note: bootstrap cgen mangles chained calls like
+        // form.GetChild(0).GetX() across package boundaries
+        // (`expected ';' before '_GetX'`). Stage every GetChild
+        // result in a Widget local first.
         let stackForm: Form = new Form("stack-v", 200, 400)
         stackForm.Add(Widget.Label("a", 0, 0, 0, 0))
         stackForm.Add(Widget.Label("b", 0, 0, 0, 0))
         stackForm.Add(Widget.Label("c", 0, 0, 0, 0))
         stackForm.SetLayout(Layout.StackVertical(10, 10))
         stackForm.ApplyLayout()
-        let svOk: bool = stackForm.GetChild(0).GetX() == 10
-        if (svOk) { svOk = stackForm.GetChild(0).GetY() == 10 }
-        if (svOk) { svOk = stackForm.GetChild(0).GetW() == 180 }
-        if (svOk) { svOk = stackForm.GetChild(1).GetY() == 10 + 116 + 10 }
-        if (svOk) { svOk = stackForm.GetChild(2).GetY() == 10 + 2 * (116 + 10) }
+        let sv0: Widget = stackForm.GetChild(0)
+        let sv1: Widget = stackForm.GetChild(1)
+        let sv2: Widget = stackForm.GetChild(2)
+        let svOk: bool = sv0.GetX() == 10
+        if (svOk) { svOk = sv0.GetY() == 10 }
+        if (svOk) { svOk = sv0.GetW() == 180 }
+        if (svOk) { svOk = sv1.GetY() == 10 + 116 + 10 }
+        if (svOk) { svOk = sv2.GetY() == 10 + 2 * (116 + 10) }
         if (svOk) {
             Console.WriteLine("[PASS] Layout.StackVertical")
         } else {
@@ -151,18 +159,19 @@ class Program {
         }
 
         // ── Layout.StackHorizontal positions children L→R ──
-        // Form 400×200, padding=10, spacing=10, 3 widgets:
-        // child width = (400-2*10-2*10)/3 = 116; height = 180.
         let hForm: Form = new Form("stack-h", 400, 200)
         hForm.Add(Widget.Label("a", 0, 0, 0, 0))
         hForm.Add(Widget.Label("b", 0, 0, 0, 0))
         hForm.Add(Widget.Label("c", 0, 0, 0, 0))
         hForm.SetLayout(Layout.StackHorizontal(10, 10))
         hForm.ApplyLayout()
-        let shOk: bool = hForm.GetChild(0).GetX() == 10
-        if (shOk) { shOk = hForm.GetChild(0).GetH() == 180 }
-        if (shOk) { shOk = hForm.GetChild(1).GetX() == 10 + 116 + 10 }
-        if (shOk) { shOk = hForm.GetChild(2).GetX() == 10 + 2 * (116 + 10) }
+        let sh0: Widget = hForm.GetChild(0)
+        let sh1: Widget = hForm.GetChild(1)
+        let sh2: Widget = hForm.GetChild(2)
+        let shOk: bool = sh0.GetX() == 10
+        if (shOk) { shOk = sh0.GetH() == 180 }
+        if (shOk) { shOk = sh1.GetX() == 10 + 116 + 10 }
+        if (shOk) { shOk = sh2.GetX() == 10 + 2 * (116 + 10) }
         if (shOk) {
             Console.WriteLine("[PASS] Layout.StackHorizontal")
         } else {
@@ -170,10 +179,6 @@ class Program {
         }
 
         // ── Layout.Grid 2×2 ──────────────────────────────
-        // Form 220×220, padding=10, spacing=10, 4 cells in 2×2:
-        // cw = (220-20-10)/2 = 95; ch = same. Cells:
-        //   (0,0)=(10,10), (0,1)=(115,10),
-        //   (1,0)=(10,115),(1,1)=(115,115).
         let gForm: Form = new Form("grid", 220, 220)
         gForm.Add(Widget.Label("a", 0, 0, 0, 0))
         gForm.Add(Widget.Label("b", 0, 0, 0, 0))
@@ -181,11 +186,15 @@ class Program {
         gForm.Add(Widget.Label("d", 0, 0, 0, 0))
         gForm.SetLayout(Layout.Grid(2, 2, 10, 10))
         gForm.ApplyLayout()
-        let gOk: bool = gForm.GetChild(0).GetX() == 10
-        if (gOk) { gOk = gForm.GetChild(1).GetX() == 115 }
-        if (gOk) { gOk = gForm.GetChild(2).GetY() == 115 }
-        if (gOk) { gOk = gForm.GetChild(3).GetX() == 115 }
-        if (gOk) { gOk = gForm.GetChild(3).GetY() == 115 }
+        let g0: Widget = gForm.GetChild(0)
+        let g1: Widget = gForm.GetChild(1)
+        let g2: Widget = gForm.GetChild(2)
+        let g3: Widget = gForm.GetChild(3)
+        let gOk: bool = g0.GetX() == 10
+        if (gOk) { gOk = g1.GetX() == 115 }
+        if (gOk) { gOk = g2.GetY() == 115 }
+        if (gOk) { gOk = g3.GetX() == 115 }
+        if (gOk) { gOk = g3.GetY() == 115 }
         if (gOk) {
             Console.WriteLine("[PASS] Layout.Grid")
         } else {
@@ -197,9 +206,10 @@ class Program {
         aForm.Add(Widget.Label("a", 42, 99, 50, 20))
         aForm.SetLayout(Layout.Absolute())
         aForm.ApplyLayout()
-        let aOk: bool = aForm.GetChild(0).GetX() == 42
-        if (aOk) { aOk = aForm.GetChild(0).GetY() == 99 }
-        if (aOk) { aOk = aForm.GetChild(0).GetW() == 50 }
+        let a0: Widget = aForm.GetChild(0)
+        let aOk: bool = a0.GetX() == 42
+        if (aOk) { aOk = a0.GetY() == 99 }
+        if (aOk) { aOk = a0.GetW() == 50 }
         if (aOk) {
             Console.WriteLine("[PASS] Layout.Absolute")
         } else {
@@ -210,8 +220,10 @@ class Program {
         // Resize stackForm 200×400 → 200×220. New child height =
         // (220-20-20)/3 = 60.
         stackForm.Resize(200, 220)
-        let rOk: bool = stackForm.GetChild(0).GetH() == 60
-        if (rOk) { rOk = stackForm.GetChild(2).GetY() == 10 + 2 * (60 + 10) }
+        let r0: Widget = stackForm.GetChild(0)
+        let r2: Widget = stackForm.GetChild(2)
+        let rOk: bool = r0.GetH() == 60
+        if (rOk) { rOk = r2.GetY() == 10 + 2 * (60 + 10) }
         if (rOk) {
             Console.WriteLine("[PASS] Form.Resize repacks")
         } else {
