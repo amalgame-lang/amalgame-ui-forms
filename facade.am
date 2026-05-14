@@ -268,21 +268,35 @@ public class Widget {
     //   TEXTBOX  — surface fill + border (accent border when
     //              Focused so users can see who has keyboard)
     //   PANEL    — surface fill + border (sub-area)
-    public void Render(win: Window, theme: Theme) {
+    public void Render(win: Window, theme: Theme, font: Font) {
         if (!this.Visible) { return }
         let bounds: Rect = new Rect(this.X, this.Y, this.W, this.H)
         let border: Color = theme.GetBorder()
         let surface: Color = theme.GetSurface()
         let accent: Color = theme.GetAccent()
+        let textColor: Color = theme.GetText()
+
+        // Inner-padded text origin — 4px from left, vertically
+        // centered for the typical font height. Font=null skips
+        // text entirely (Application.Run passes null when the
+        // default font failed to load).
+        let textPadX: int = 4
+        let textY: int = this.Y + (this.H - font.GetSize()) / 2
 
         if (this.Kind == WidgetKind.LABEL()) {
             win.DrawRect(bounds, border)
+            if (font != null) {
+                win.DrawText(font, this.Text, this.X + textPadX, textY, textColor)
+            }
         }
         if (this.Kind == WidgetKind.BUTTON()) {
             let bg: Color = surface
             if (this.Pressed) { bg = accent }
             win.FillRect(bounds, bg)
             win.DrawRect(bounds, border)
+            if (font != null) {
+                win.DrawText(font, this.Text, this.X + textPadX, textY, textColor)
+            }
         }
         if (this.Kind == WidgetKind.CHECKBOX() || this.Kind == WidgetKind.RADIO()) {
             // Indicator: a small square on the left half of H.
@@ -293,15 +307,19 @@ public class Widget {
             if (this.Checked) { indBg = accent }
             win.FillRect(ind, indBg)
             win.DrawRect(ind, border)
-            // Label area to the right (text rendering later).
-            let lbl: Rect = new Rect(this.X + indSize, this.Y, this.W - indSize, this.H)
-            win.DrawRect(lbl, border)
+            // Label to the right of the indicator.
+            if (font != null) {
+                win.DrawText(font, this.Text, this.X + indSize + textPadX, textY, textColor)
+            }
         }
         if (this.Kind == WidgetKind.TEXTBOX()) {
             win.FillRect(bounds, surface)
             let bc: Color = border
             if (this.Focused) { bc = accent }
             win.DrawRect(bounds, bc)
+            if (font != null) {
+                win.DrawText(font, this.Text, this.X + textPadX, textY, textColor)
+            }
         }
         if (this.Kind == WidgetKind.PANEL()) {
             win.FillRect(bounds, surface)
@@ -682,6 +700,14 @@ public class Application {
         let theme: Theme = Theme.FromOS()
         let bg: Color = theme.GetBackground()
 
+        // Load a default 14pt font for widget text rendering.
+        // LoadDefault probes Linux/macOS/Windows font paths and
+        // returns the first hit; null only when every probe
+        // fails (very minimal install). Widget.Render skips text
+        // when font is null, so the window still opens with
+        // empty rects.
+        let font: Font = Font.LoadDefault(14)
+
         // Initial layout pass — children placed at construction
         // get re-positioned to the form's current size (which
         // may have been adjusted by SDL between Form construction
@@ -745,7 +771,7 @@ public class Application {
             var j: int = 0
             while (j < n2) {
                 let w: Widget = form.GetChild(j)
-                w.Render(win, theme)
+                w.Render(win, theme, font)
                 j = j + 1
             }
             win.Present()
