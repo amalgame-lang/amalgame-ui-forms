@@ -322,26 +322,39 @@ public class Layout {
         let pad: int = this.Padding
         let gap: int = this.Spacing
 
+        // Bootstrap cgen drops parens around `(n - 1)` and the
+        // numerator of `/ n` when mixed with subtraction. Stage
+        // every sub-expression in a local so the emitted C
+        // groups them correctly. (Tracked as the "Parens lost
+        // on mixed * + /" entry in amc's CONTINUATION.md.)
         if (this.Kind == LayoutKind.STACK_VERTICAL()) {
             let cw: int = w - 2 * pad
-            let totalGap: int = gap * (n - 1)
-            let ch: int = (h - 2 * pad - totalGap) / n
+            let nm1: int = n - 1
+            let totalGap: int = gap * nm1
+            let usableH: int = h - 2 * pad - totalGap
+            let ch: int = usableH / n
+            let step: int = ch + gap
             var i: int = 0
             while (i < n) {
                 let child: Widget = children.Get(i)
-                child.SetBounds(pad, pad + i * (ch + gap), cw, ch)
+                let yOff: int = i * step
+                child.SetBounds(pad, pad + yOff, cw, ch)
                 i = i + 1
             }
         }
 
         if (this.Kind == LayoutKind.STACK_HORIZONTAL()) {
             let ch: int = h - 2 * pad
-            let totalGap: int = gap * (n - 1)
-            let cw: int = (w - 2 * pad - totalGap) / n
+            let nm1: int = n - 1
+            let totalGap: int = gap * nm1
+            let usableW: int = w - 2 * pad - totalGap
+            let cw: int = usableW / n
+            let step: int = cw + gap
             var i: int = 0
             while (i < n) {
                 let child: Widget = children.Get(i)
-                child.SetBounds(pad + i * (cw + gap), pad, cw, ch)
+                let xOff: int = i * step
+                child.SetBounds(pad + xOff, pad, cw, ch)
                 i = i + 1
             }
         }
@@ -349,14 +362,22 @@ public class Layout {
         if (this.Kind == LayoutKind.GRID()) {
             let rows: int = this.Rows
             let cols: int = this.Cols
-            let cw: int = (w - 2 * pad - gap * (cols - 1)) / cols
-            let ch: int = (h - 2 * pad - gap * (rows - 1)) / rows
+            let colsM1: int = cols - 1
+            let rowsM1: int = rows - 1
+            let usableW: int = w - 2 * pad - gap * colsM1
+            let usableH: int = h - 2 * pad - gap * rowsM1
+            let cw: int = usableW / cols
+            let ch: int = usableH / rows
+            let stepX: int = cw + gap
+            let stepY: int = ch + gap
             var i: int = 0
             while (i < n) {
                 let r: int = i / cols
                 let c: int = i % cols
                 let child: Widget = children.Get(i)
-                child.SetBounds(pad + c * (cw + gap), pad + r * (ch + gap), cw, ch)
+                let xOff: int = c * stepX
+                let yOff: int = r * stepY
+                child.SetBounds(pad + xOff, pad + yOff, cw, ch)
                 i = i + 1
             }
         }
