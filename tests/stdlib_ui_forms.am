@@ -147,11 +147,15 @@ class Program {
         let sv0: Widget = stackForm.GetChild(0)
         let sv1: Widget = stackForm.GetChild(1)
         let sv2: Widget = stackForm.GetChild(2)
+        // Expected values hardcoded — `10 + 2 * (120 + 10)` lowers
+        // through the same cgen parens-lost bug as Layout.Apply
+        // (260 instead of 270 in the emitted C). Hardcoded ints
+        // sidestep the precedence breakage at the assertion site.
         let svOk: bool = sv0.GetX() == 10
         if (svOk) { svOk = sv0.GetY() == 10 }
         if (svOk) { svOk = sv0.GetW() == 180 }
-        if (svOk) { svOk = sv1.GetY() == 10 + 120 + 10 }
-        if (svOk) { svOk = sv2.GetY() == 10 + 2 * (120 + 10) }
+        if (svOk) { svOk = sv1.GetY() == 140 }   // 10 + 120 + 10
+        if (svOk) { svOk = sv2.GetY() == 270 }   // 10 + 2*(120+10)
         if (svOk) {
             Console.WriteLine("[PASS] Layout.StackVertical")
         } else {
@@ -176,8 +180,8 @@ class Program {
         let sh2: Widget = hForm.GetChild(2)
         let shOk: bool = sh0.GetX() == 10
         if (shOk) { shOk = sh0.GetH() == 180 }
-        if (shOk) { shOk = sh1.GetX() == 10 + 120 + 10 }
-        if (shOk) { shOk = sh2.GetX() == 10 + 2 * (120 + 10) }
+        if (shOk) { shOk = sh1.GetX() == 140 }   // 10 + 120 + 10
+        if (shOk) { shOk = sh2.GetX() == 270 }   // 10 + 2*(120+10) — hardcoded, see svOk
         if (shOk) {
             Console.WriteLine("[PASS] Layout.StackHorizontal")
         } else {
@@ -229,7 +233,7 @@ class Program {
         let r0: Widget = stackForm.GetChild(0)
         let r2: Widget = stackForm.GetChild(2)
         let rOk: bool = r0.GetH() == 60
-        if (rOk) { rOk = r2.GetY() == 10 + 2 * (60 + 10) }
+        if (rOk) { rOk = r2.GetY() == 150 }   // 10 + 2*(60+10) — hardcoded, see svOk
         if (rOk) {
             Console.WriteLine("[PASS] Form.Resize repacks")
         } else {
