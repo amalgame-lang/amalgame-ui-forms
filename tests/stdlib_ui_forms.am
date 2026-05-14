@@ -327,6 +327,92 @@ class Program {
             Console.WriteLine("[FAIL] Panel construction")
         }
 
+        // ── ListBox click selects row ────────────────────
+        let lbItems: List<string> = new List<string>()
+        lbItems.Add("alpha")
+        lbItems.Add("beta")
+        lbItems.Add("gamma")
+        let listBox: Widget = Widget.ListBox(lbItems, 0, 0, 200, 100)
+        let lbOk: bool = listBox.GetKind() == WidgetKind.LISTBOX()
+        if (lbOk) { lbOk = listBox.GetItemCount() == 3 }
+        if (lbOk) { lbOk = listBox.GetSelectedIndex() == -1 }
+        // Simulate click on row 1 (y = rowH * 1 = 20).
+        if (lbOk) {
+            let ev: Event = new Event()
+            ev.SetX(50)
+            ev.SetY(25)        // inside row 1
+            listBox.OnClick(ev)
+            lbOk = listBox.GetSelectedIndex() == 1
+        }
+        if (lbOk) {
+            Console.WriteLine("[PASS] ListBox click selects row")
+        } else {
+            Console.WriteLine("[FAIL] ListBox click selects row")
+        }
+
+        // ── ComboBox open / select / close ───────────────
+        let cbItems: List<string> = new List<string>()
+        cbItems.Add("red")
+        cbItems.Add("green")
+        cbItems.Add("blue")
+        let combo: Widget = Widget.ComboBox(cbItems, "pick one", 0, 0, 150, 24)
+        let coOk: bool = combo.GetKind() == WidgetKind.COMBOBOX()
+        if (coOk) { coOk = !combo.GetOpen() }
+        if (coOk) { coOk = combo.GetSelectedIndex() == -1 }
+        // Click on closed row → opens.
+        if (coOk) {
+            let ev: Event = new Event()
+            ev.SetX(50)
+            ev.SetY(10)        // inside closed (H=24)
+            combo.OnClick(ev)
+            coOk = combo.GetOpen()
+        }
+        // Click on dropdown row 2 (y = H + 2*H = 72) → select + close.
+        if (coOk) {
+            let ev2: Event = new Event()
+            ev2.SetX(50)
+            ev2.SetY(75)
+            combo.OnClick(ev2)
+            coOk = !combo.GetOpen()
+        }
+        if (coOk) { coOk = combo.GetSelectedIndex() == 2 }
+        if (coOk) {
+            Console.WriteLine("[PASS] ComboBox open + select + close")
+        } else {
+            Console.WriteLine("[FAIL] ComboBox open + select + close")
+        }
+
+        // ── MenuBar click toggles + dropdown ─────────────
+        let mbItems: List<string> = new List<string>()
+        mbItems.Add("File")
+        mbItems.Add("Edit")
+        mbItems.Add("View")
+        let menubar: Widget = Widget.MenuBar(mbItems, 0, 0, 300, 24)
+        let mbOk: bool = menubar.GetKind() == WidgetKind.MENUBAR()
+        if (mbOk) { mbOk = !menubar.GetOpen() }
+        // Click on title 1 (cellW=100, click at x=150 → idx=1).
+        if (mbOk) {
+            let ev: Event = new Event()
+            ev.SetX(150)
+            ev.SetY(10)
+            menubar.OnClick(ev)
+            mbOk = menubar.GetOpen()
+        }
+        if (mbOk) { mbOk = menubar.GetSelectedIndex() == 1 }
+        // Click on same title again → close.
+        if (mbOk) {
+            let ev2: Event = new Event()
+            ev2.SetX(150)
+            ev2.SetY(10)
+            menubar.OnClick(ev2)
+            mbOk = !menubar.GetOpen()
+        }
+        if (mbOk) {
+            Console.WriteLine("[PASS] MenuBar toggle open")
+        } else {
+            Console.WriteLine("[FAIL] MenuBar toggle open")
+        }
+
         // ── Form.Resize repacks via attached layout ──────
         // Resize stackForm 200×400 → 200×220. New child height =
         // (220-20-20)/3 = 60.
