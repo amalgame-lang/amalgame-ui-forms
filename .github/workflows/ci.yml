@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        amc-tag: [v0.8.6]
+        amc-tag: [v0.8.7]
     steps:
       - name: Checkout amalgame-ui-forms
         uses: actions/checkout@v4
