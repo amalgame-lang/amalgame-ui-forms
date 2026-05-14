@@ -88,16 +88,18 @@ public class Theme {
             new Color( 72,  72,  74, 255))  // border
     }
 
-    // Picks Light or Dark from the host OS appearance setting.
-    // Calls into amalgame-ui-sdl's OSTheme (renamed from Theme
-    // in ui-sdl v0.0.2 to avoid the namespace collision — the
-    // resolver doesn't accept fully qualified Pkg.Sub.Cls.X()
-    // paths yet).
+    // Returns Light() by default. Wiring this to the host OS
+    // appearance is blocked on an amc 0.8.6 limitation: `amc
+    // --lib facade.am` doesn't load amalgame.lock, so a call to
+    // `OSTheme.DetectOS()` here can't be resolved at facade
+    // pre-compile time. Consumers can drive it themselves:
+    //
+    //   let scheme = OSTheme.DetectOS()
+    //   let theme  = scheme == "dark" ? Theme.Dark() : Theme.Light()
+    //
+    // FromOS gets the real probe back once amc grows lockfile
+    // support in --lib mode (tracked for ui-forms v0.0.3).
     public static Theme FromOS() {
-        let scheme: string = OSTheme.DetectOS()
-        if (scheme == "dark") {
-            return Theme.Dark()
-        }
         return Theme.Light()
     }
 }
@@ -274,7 +276,11 @@ public class Application {
             let e: Event = win.Wait()
             let kind: int = e.GetKind()
 
-            if (kind == EventKind.MOUSE_DOWN()) {
+            // 2 = EventKind.MOUSE_DOWN() — inlined because amc
+            // --lib can't resolve cross-package static method
+            // calls in facade pre-compile mode. Tracked for
+            // v0.0.3 alongside Theme.FromOS proper.
+            if (kind == 2) {
                 let i: int = form.ChildCount() - 1
                 while (i >= 0) {
                     let w: Widget = form.GetChild(i)
