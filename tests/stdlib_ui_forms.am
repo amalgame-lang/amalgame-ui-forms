@@ -226,6 +226,107 @@ class Program {
             Console.WriteLine("[FAIL] Layout.Absolute")
         }
 
+        // ── CheckBox toggle on OnClick ───────────────────
+        let cb: Widget = Widget.CheckBox("agree", 0, 0, 100, 24)
+        let cbOk: bool = cb.GetKind() == WidgetKind.CHECKBOX()
+        if (cbOk) { cbOk = !cb.GetChecked() }
+        if (cbOk) {
+            let ev: Event = new Event()
+            cb.OnClick(ev)
+            cbOk = cb.GetChecked()
+        }
+        if (cbOk) {
+            // Second click flips it back.
+            let ev2: Event = new Event()
+            cb.OnClick(ev2)
+            cbOk = !cb.GetChecked()
+        }
+        if (cbOk) {
+            Console.WriteLine("[PASS] CheckBox toggle")
+        } else {
+            Console.WriteLine("[FAIL] CheckBox toggle")
+        }
+
+        // ── RadioButton group exclusivity ────────────────
+        // Three radios in group=1, one in group=2. Clicking r0
+        // sets Checked=true; UncheckGroup walks the form so r1
+        // and r2 (same group) come back to false but r3 (other
+        // group) is untouched.
+        let radioForm: Form = new Form("radio", 200, 200)
+        radioForm.Add(Widget.RadioButton("a", 1, 0, 0, 100, 24))
+        radioForm.Add(Widget.RadioButton("b", 1, 0, 0, 100, 24))
+        radioForm.Add(Widget.RadioButton("c", 1, 0, 0, 100, 24))
+        radioForm.Add(Widget.RadioButton("x", 2, 0, 0, 100, 24))
+        let r0: Widget = radioForm.GetChild(0)
+        let r1: Widget = radioForm.GetChild(1)
+        let r2: Widget = radioForm.GetChild(2)
+        let r3: Widget = radioForm.GetChild(3)
+        // Pre-check r1 + r3 to ensure UncheckGroup correctly
+        // clears group-1 peers while leaving group-2 alone.
+        r1.SetChecked(true)
+        r3.SetChecked(true)
+        // Click r0.
+        let rev: Event = new Event()
+        r0.OnClick(rev)
+        radioForm.UncheckGroup(r0.GetGroup(), r0)
+        let radioOk: bool = r0.GetChecked()
+        if (radioOk) { radioOk = !r1.GetChecked() }
+        if (radioOk) { radioOk = !r2.GetChecked() }
+        if (radioOk) { radioOk = r3.GetChecked() }   // group 2 — untouched
+        if (radioOk) {
+            Console.WriteLine("[PASS] RadioButton group exclusivity")
+        } else {
+            Console.WriteLine("[FAIL] RadioButton group exclusivity")
+        }
+
+        // ── TextBox HandleKey: insert + backspace ────────
+        let tb: Widget = Widget.TextBox("hi", 0, 0, 100, 24)
+        let tbOk: bool = tb.GetKind() == WidgetKind.TEXTBOX()
+        if (tbOk) { tbOk = tb.GetText() == "hi" }
+        if (tbOk) { tbOk = tb.GetCursorPos() == 2 }
+        // HandleKey ignores events when Focused=false.
+        if (tbOk) {
+            let ke1: Event = new Event()
+            ke1.SetButton(65)   // 'A'
+            tb.HandleKey(ke1)
+            tbOk = tb.GetText() == "hi"   // unchanged — not focused
+        }
+        // Focus + type 'A' (SDL keycode 97 = 'a' lower; we use
+        // 65 = 'A' upper which is also printable ASCII).
+        if (tbOk) {
+            tb.SetFocused(true)
+            let ke2: Event = new Event()
+            ke2.SetButton(65)
+            tb.HandleKey(ke2)
+            tbOk = tb.GetText() == "hiA"
+        }
+        if (tbOk) { tbOk = tb.GetCursorPos() == 3 }
+        // Backspace removes the freshly-inserted 'A'.
+        if (tbOk) {
+            let ke3: Event = new Event()
+            ke3.SetButton(8)
+            tb.HandleKey(ke3)
+            tbOk = tb.GetText() == "hi"
+        }
+        if (tbOk) { tbOk = tb.GetCursorPos() == 2 }
+        if (tbOk) {
+            Console.WriteLine("[PASS] TextBox insert + backspace")
+        } else {
+            Console.WriteLine("[FAIL] TextBox insert + backspace")
+        }
+
+        // ── Panel construction ───────────────────────────
+        let panel: Widget = Widget.Panel(10, 10, 200, 100)
+        let panelOk: bool = panel.GetKind() == WidgetKind.PANEL()
+        if (panelOk) { panelOk = panel.GetX() == 10 }
+        if (panelOk) { panelOk = panel.GetW() == 200 }
+        if (panelOk) { panelOk = panel.GetVisible() }
+        if (panelOk) {
+            Console.WriteLine("[PASS] Panel construction")
+        } else {
+            Console.WriteLine("[FAIL] Panel construction")
+        }
+
         // ── Form.Resize repacks via attached layout ──────
         // Resize stackForm 200×400 → 200×220. New child height =
         // (220-20-20)/3 = 60.
