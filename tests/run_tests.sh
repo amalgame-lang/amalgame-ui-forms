@@ -149,7 +149,10 @@ run_test() {
     else
         echo -e "${RED}FAIL${NC} (mismatch)"
         echo "    expected: $expected"
-        echo "    got:      $(echo "$run_output" | head -3 | tr '\n' '|')"
+        # Wide window so debug prints emitted right after the
+        # matching [FAIL] line surface in the CI log.
+        echo "    got:"
+        echo "$run_output" | head -30 | sed 's/^/      /'
         FAIL=$((FAIL + 1))
     fi
 }
