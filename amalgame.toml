@@ -13,7 +13,7 @@
 
 [package]
 name              = "amalgame-ui-forms"
-version           = "0.0.3-dev"
+version           = "0.0.4-dev"
 license           = "Apache-2.0"
 description       = "Retained-mode Forms toolkit — Form/Button/TextBox/layouts/theming on top of amalgame-ui-sdl."
 authors           = ["Bastien Mouget"]
