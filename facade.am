@@ -187,6 +187,16 @@ public class Widget {
     public void SetText(t: string)  { this.Text = t }
     public void SetPressed(p: bool) { this.Pressed = p }
 
+    // Used by layout managers to reposition the widget in one
+    // shot. Bypasses Set{X,Y,W,H} setters that don't exist (and
+    // don't need to) — bounds always change in lockstep.
+    public void SetBounds(x: int, y: int, w: int, h: int) {
+        this.X = x
+        this.Y = y
+        this.W = w
+        this.H = h
+    }
+
     // Half-open rectangle: [X, X+W) × [Y, Y+H).
     public bool Contains(px: int, py: int) {
         if (px < this.X) { return false }
@@ -227,6 +237,124 @@ public class Widget {
     }
 }
 
+// ─── LayoutKind tag constants ──────────────────────────
+
+public class LayoutKind {
+    public static int ABSOLUTE()         { return 0 }
+    public static int STACK_VERTICAL()   { return 1 }
+    public static int STACK_HORIZONTAL() { return 2 }
+    public static int GRID()             { return 3 }
+}
+
+// ─── Layout ────────────────────────────────────────────
+//
+// Layouts repack a Form's children to fit a target (w × h)
+// area. Same class-with-tag pattern as Widget — one concrete
+// class, switch in Apply() on Kind. Layouts mutate child bounds
+// via Widget.SetBounds (no return value, no per-child new
+// allocation).
+//
+//   Absolute        — no-op. Children keep the X/Y/W/H they
+//                     were constructed with.
+//   StackVertical   — evenly-spaced rows; full width for each.
+//   StackHorizontal — evenly-spaced columns; full height each.
+//   Grid(rows×cols) — fixed-size cell grid, row-major fill.
+//
+// `Spacing` is the gap between adjacent children. `Padding`
+// is the outer margin around the whole pack (top + bottom +
+// left + right all get the same value). Both are in pixels.
+
+public class Layout {
+    public Kind:    int
+    public Spacing: int
+    public Padding: int
+    public Rows:    int   // grid only — 0 otherwise
+    public Cols:    int   // grid only — 0 otherwise
+
+    public Layout(kind: int, spacing: int, padding: int, rows: int, cols: int) {
+        this.Kind    = kind
+        this.Spacing = spacing
+        this.Padding = padding
+        this.Rows    = rows
+        this.Cols    = cols
+    }
+
+    public static Layout Absolute() {
+        return new Layout(LayoutKind.ABSOLUTE(), 0, 0, 0, 0)
+    }
+
+    public static Layout StackVertical(spacing: int, padding: int) {
+        return new Layout(LayoutKind.STACK_VERTICAL(), spacing, padding, 0, 0)
+    }
+
+    public static Layout StackHorizontal(spacing: int, padding: int) {
+        return new Layout(LayoutKind.STACK_HORIZONTAL(), spacing, padding, 0, 0)
+    }
+
+    public static Layout Grid(rows: int, cols: int, spacing: int, padding: int) {
+        return new Layout(LayoutKind.GRID(), spacing, padding, rows, cols)
+    }
+
+    public int GetKind()    { return this.Kind }
+    public int GetSpacing() { return this.Spacing }
+    public int GetPadding() { return this.Padding }
+    public int GetRows()    { return this.Rows }
+    public int GetCols()    { return this.Cols }
+
+    // Reposition every child of `form` to fit the `w × h` rect.
+    // Mutates child bounds in place. Absolute is a no-op.
+    public void Apply(form: Form, w: int, h: int) {
+        if (this.Kind == LayoutKind.ABSOLUTE()) {
+            return
+        }
+        let n: int = form.ChildCount()
+        if (n == 0) {
+            return
+        }
+        let pad: int = this.Padding
+        let gap: int = this.Spacing
+
+        if (this.Kind == LayoutKind.STACK_VERTICAL()) {
+            let cw: int = w - 2 * pad
+            let totalGap: int = gap * (n - 1)
+            let ch: int = (h - 2 * pad - totalGap) / n
+            var i: int = 0
+            while (i < n) {
+                let child: Widget = form.GetChild(i)
+                child.SetBounds(pad, pad + i * (ch + gap), cw, ch)
+                i = i + 1
+            }
+        }
+
+        if (this.Kind == LayoutKind.STACK_HORIZONTAL()) {
+            let ch: int = h - 2 * pad
+            let totalGap: int = gap * (n - 1)
+            let cw: int = (w - 2 * pad - totalGap) / n
+            var i: int = 0
+            while (i < n) {
+                let child: Widget = form.GetChild(i)
+                child.SetBounds(pad + i * (cw + gap), pad, cw, ch)
+                i = i + 1
+            }
+        }
+
+        if (this.Kind == LayoutKind.GRID()) {
+            let rows: int = this.Rows
+            let cols: int = this.Cols
+            let cw: int = (w - 2 * pad - gap * (cols - 1)) / cols
+            let ch: int = (h - 2 * pad - gap * (rows - 1)) / rows
+            var i: int = 0
+            while (i < n) {
+                let r: int = i / cols
+                let c: int = i % cols
+                let child: Widget = form.GetChild(i)
+                child.SetBounds(pad + c * (cw + gap), pad + r * (ch + gap), cw, ch)
+                i = i + 1
+            }
+        }
+    }
+}
+
 // ─── Form ──────────────────────────────────────────────
 
 public class Form {
@@ -234,6 +362,7 @@ public class Form {
     public Width:      int
     public Height:     int
     public Children:   List<Widget>
+    public Layout:     Layout    // null = absolute (no-op)
     public ShouldExit: bool
 
     public Form(title: string, w: int, h: int) {
@@ -241,6 +370,7 @@ public class Form {
         this.Width      = w
         this.Height     = h
         this.Children   = new List<Widget>()
+        this.Layout     = null
         this.ShouldExit = false
     }
 
@@ -248,6 +378,7 @@ public class Form {
     public int    GetWidth()   { return this.Width }
     public int    GetHeight()  { return this.Height }
     public int    ChildCount() { return this.Children.Count() }
+    public Layout GetLayout()  { return this.Layout }
 
     public void Add(child: Widget) {
         this.Children.Add(child)
@@ -255,6 +386,30 @@ public class Form {
 
     public Widget GetChild(i: int) {
         return this.Children.Get(i)
+    }
+
+    // Attach a layout. Doesn't apply immediately — callers either
+    // call ApplyLayout() explicitly after staging children, or
+    // let Application.Run apply it once at startup + on every
+    // window-resize event.
+    public void SetLayout(l: Layout) {
+        this.Layout = l
+    }
+
+    // Reposition children against the form's current size.
+    // No-op when no layout is set.
+    public void ApplyLayout() {
+        if (this.Layout != null) {
+            this.Layout.Apply(this, this.Width, this.Height)
+        }
+    }
+
+    // Called by Application.Run when the SDL window resizes.
+    // Form width/height get updated and children re-laid.
+    public void Resize(w: int, h: int) {
+        this.Width  = w
+        this.Height = h
+        this.ApplyLayout()
     }
 
     // Request the event loop to bail on its next iteration.
@@ -288,9 +443,23 @@ public class Application {
         let theme: Theme = Theme.FromOS()
         let bg: Color = theme.GetBackground()
 
+        // Initial layout pass — children placed at construction
+        // get re-positioned to the form's current size (which
+        // may have been adjusted by SDL between Form construction
+        // and window opening — high-DPI scaling, tiling WMs, …).
+        form.ApplyLayout()
+
         while (!win.ShouldClose() && !form.ShouldClose()) {
             let e: Event = win.Wait()
             let kind: int = e.GetKind()
+
+            if (kind == EventKind.WINDOW_RESIZE()) {
+                // Forward the new size to the form so any
+                // attached Layout repacks children. Resize
+                // also covers HiDPI scaling factor changes
+                // on macOS/Wayland when a monitor switches.
+                form.Resize(e.GetW(), e.GetH())
+            }
 
             if (kind == EventKind.MOUSE_DOWN()) {
                 let ex: int = e.GetX()
