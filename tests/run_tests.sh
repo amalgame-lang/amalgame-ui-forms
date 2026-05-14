@@ -111,7 +111,12 @@ ar rcs "$SDL_FACADE_ARCHIVE" "$FACADE_BUILD_DIR/Window-facade.o"
 
 FORMS_FACADE_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-Application.a"
 echo "── Pre-compiling ui-forms facade.am → $(basename "$FORMS_FACADE_ARCHIVE") ──"
-"$AMC" --lib --quiet "$PKG_ROOT/facade.am" -o "$FACADE_BUILD_DIR/Application-facade" 2>&1 | head -5
+# Run from $PROJ_DIR so amc finds amalgame.lock and can resolve
+# the OSTheme/Color symbols that come from amalgame-ui-sdl.
+# Without the lockfile in cwd, amc treats Color as if it lived in
+# the current package and emits Amalgame_UI_Forms_Color in the
+# generated .c — gcc then fails because that type doesn't exist.
+(cd "$PROJ_DIR" && "$AMC" --lib --quiet "$PKG_ROOT/facade.am" -o "$FACADE_BUILD_DIR/Application-facade" 2>&1 | head -5)
 if [ ! -f "$FACADE_BUILD_DIR/Application-facade.c" ]; then
     echo "ERROR: amc failed to emit Application-facade.c" >&2; exit 1
 fi
