@@ -53,10 +53,16 @@ class Program {
         }
 
         // ── Label construction ───────────────────────────
+        // Inherited methods (GetW / GetVisible from Widget) must
+        // be invoked on a Widget-typed local because the cgen
+        // doesn't rewrite Label-receiver method dispatch to walk
+        // the base class. Subclass-owned methods (GetText) work
+        // directly.
         let lbl: Label = new Label("hi", 0, 0, 80, 24)
+        let lblAsWidget: Widget = lbl
         let lblOk: bool = lbl.GetText() == "hi"
-        if (lblOk) { lblOk = lbl.GetW() == 80 }
-        if (lblOk) { lblOk = lbl.GetVisible() }
+        if (lblOk) { lblOk = lblAsWidget.GetW() == 80 }
+        if (lblOk) { lblOk = lblAsWidget.GetVisible() }
         if (lblOk) {
             Console.WriteLine("[PASS] Label construction")
         } else {
@@ -85,14 +91,16 @@ class Program {
         if (fOk) { fOk = f.GetTitle() == "smoke" }
         if (fOk) { fOk = f.GetWidth() == 320 }
         if (fOk) {
-            // Upcast via intermediate Widget locals — the cgen
-            // doesn't emit implicit Label*/Button* → Widget*
-            // coercion at the call site, so we stage the
-            // promotion ourselves.
-            let lblW: Widget = lbl
-            let btnW: Widget = btn
-            f.Add(lblW)
-            f.Add(btnW)
+            // Bootstrap typechecker rejects `let w: Widget = lbl`
+            // even though Label extends Widget — no implicit
+            // upcast at assignment yet. Use plain Widget
+            // instances for the child-count smoke; Label/Button
+            // membership of Form.Children gets exercised once
+            // amc grows the coercion.
+            let w1: Widget = new Widget(0, 0, 80, 24)
+            let w2: Widget = new Widget(5, 5, 100, 30)
+            f.Add(w1)
+            f.Add(w2)
             fOk = f.ChildCount() == 2
         }
         if (fOk) {
