@@ -630,6 +630,12 @@ public class Form {
     // Walks children top-down for a Widget with Focused=true.
     // Returns null when none exists (Application.Run skips key
     // dispatch in that case).
+    //
+    // The trailing fallback uses an @c block — the bootstrap
+    // typechecker rejects `return null` for a Widget-typed
+    // method even though null is the legal Widget* value at
+    // the C level. Same workaround used in amc's own bundled
+    // stdlib for JsonValue.GetOrNull / similar.
     public Widget FocusedWidget() {
         let n: int = this.Children.Count()
         var i: int = n - 1
@@ -640,7 +646,9 @@ public class Form {
             }
             i = i - 1
         }
-        return null
+        @c {
+            return NULL;
+        }
     }
 
     // Request the event loop to bail on its next iteration.
