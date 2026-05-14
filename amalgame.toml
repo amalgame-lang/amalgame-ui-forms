@@ -13,11 +13,14 @@
 
 [package]
 name              = "amalgame-ui-forms"
-version           = "0.1.0"
+version           = "0.1.1"
 license           = "Apache-2.0"
 description       = "Retained-mode Forms toolkit — Form/Button/TextBox/layouts/theming on top of amalgame-ui-sdl."
 authors           = ["Bastien Mouget"]
 required-amalgame = ">=0.8.7"
+# Note: works fine on 0.8.7 too — v0.1.1 just drops the
+# file-scope @c { #include "Amalgame_UI.h" } that broke
+# PrecompileFacade at install time. No new amc surface required.
 schema-version    = 1
 
 [dependencies]

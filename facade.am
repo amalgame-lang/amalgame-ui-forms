@@ -47,9 +47,17 @@ import Amalgame.UI.SDL
 //   - Deferred: Layouts (Stack/Grid/Absolute), Panel, CheckBox,
 //     RadioButton, ListBox, ComboBox, MenuBar, HiDPI scaling.
 
-@c {
-    #include "Amalgame_UI.h"
-}
+// No file-scope @c block. We used to splice
+// `#include "Amalgame_UI.h"` here, but PrecompileFacade
+// can't add -I for cross-package runtime/ dirs at install
+// time — the gcc invocation would fail to find the SDL
+// binding header. None of the @c blocks below actually
+// reference Amalgame_UI_* symbols (string trampolines hit
+// code_strdup; NULL returns hit the bootstrap NULL).
+// Application.Run dispatches to ui-sdl through the AM
+// classes (Window/Event/Font/Color/Rect/OSTheme), which
+// the cgen forward-declares automatically via the
+// amalgame.lock cross-package resolver.
 
 // ─── Theme ─────────────────────────────────────────────
 
