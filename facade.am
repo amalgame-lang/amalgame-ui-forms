@@ -3,32 +3,39 @@ namespace Amalgame.UI.Forms
 import Amalgame.UI.SDL
 
 // ═══════════════════════════════════════════════════════
-//  facade.am — Forms toolkit (v0.0.1-dev scaffold)
+//  facade.am — Forms toolkit (v0.0.2-dev)
 // ═══════════════════════════════════════════════════════
 //
-// Public surface (incrementally filled across v0.0.x):
+// Public surface:
+//   Theming:
+//     Theme          — colour palette (Background/Surface/Text/Accent/Border/TextMuted)
+//     Theme.Light() / Dark() / FromOS()
 //
 //   Widgets:
-//     Form, Label, Button, TextBox, Panel,
-//     CheckBox, RadioButton, ListBox, ComboBox, MenuBar
+//     Widget         — base class (X/Y/W/H/Visible + virtual Render/OnClick)
+//     Label          — read-only text
+//     Button         — clickable rectangle (sets Pressed flag on click)
+//     Form           — top-level container (title + size + children)
 //
-//   Layouts:
-//     StackLayout (Vertical / Horizontal)
-//     GridLayout (rows × cols)
-//     AbsoluteLayout (X/Y/W/H)
+//   Lifecycle:
+//     Application.Run(form)  — opens the SDL window, loops on
+//                               WaitEvent, dispatches mouse-down
+//                               to widgets via hit-test, renders
+//                               each frame. Returns when the form
+//                               closes (X button or form.Close()).
 //
-//   Theming:
-//     Theme class with Background / Text / Accent / Border / etc.
-//     Theme.Light() / Theme.Dark() presets
-//     Theme.FromOS() — picks Light or Dark via Amalgame.UI.SDL.Theme.DetectOS()
-//
-//   Application lifecycle:
-//     Application.Run(rootForm) blocking event loop
-//     Application.SetTheme(theme)
-//     Application.Quit()
-//
-// Status v0.0.1-dev: only Theme + Application skeleton wired.
-// Widgets land in v0.0.2+.
+// Status v0.0.2-dev:
+//   - Theme + Widget/Label/Button/Form + Application.Run wired.
+//   - Text rendering deferred: Label/Button draw their bounding
+//     rect only. Once a default Font is wired in v0.0.3 the
+//     Render bodies will gain Window.DrawText calls.
+//   - Click handlers via subclass override (no closure-in-field
+//     yet). v0.0.3 explores `button.OnClick = (e) => …` once the
+//     storable-Closure pattern is validated.
+//   - Layouts (Stack/Grid/Absolute), Panel, CheckBox, RadioButton,
+//     ListBox, ComboBox, MenuBar — all deferred to v0.0.3+.
+
+// ─── Theme ─────────────────────────────────────────────
 
 public class Theme {
     public Background: Color
@@ -92,14 +99,210 @@ public class Theme {
     }
 }
 
-public class Application {
-    // Reserved — full event-loop impl lands in v0.0.2 once
-    // amalgame-ui-sdl exposes Window / Event.
-    public static void Run() {
-        Console.WriteLine("Application.Run — not yet implemented (v0.0.1-dev scaffold)")
+// ─── Widget (base class) ───────────────────────────────
+//
+// Bootstrap amc lacks `super()`, so every subclass constructor
+// repeats the X/Y/W/H/Visible assignments inline. Methods marked
+// "override in subclass" are no-ops here — Amalgame dispatches
+// them virtually via the cgen's class-method vtable.
+
+public class Widget {
+    public X: int
+    public Y: int
+    public W: int
+    public H: int
+    public Visible: bool
+
+    public Widget(x: int, y: int, w: int, h: int) {
+        this.X = x
+        this.Y = y
+        this.W = w
+        this.H = h
+        this.Visible = true
     }
 
-    public static void Quit() {
-        Console.WriteLine("Application.Quit — not yet implemented (v0.0.1-dev scaffold)")
+    public int GetX()        { return this.X }
+    public int GetY()        { return this.Y }
+    public int GetW()        { return this.W }
+    public int GetH()        { return this.H }
+    public bool GetVisible() { return this.Visible }
+
+    public void SetVisible(v: bool) { this.Visible = v }
+
+    // Half-open rectangle: [X, X+W) × [Y, Y+H).
+    public bool Contains(px: int, py: int) {
+        if (px < this.X) { return false }
+        if (px >= this.X + this.W) { return false }
+        if (py < this.Y) { return false }
+        if (py >= this.Y + this.H) { return false }
+        return true
+    }
+
+    // Subclasses override these. Defaults are no-ops so leaf
+    // Widgets can be added directly without forcing a subclass.
+    public void Render(win: Window, theme: Theme) { }
+    public void OnClick(e: Event) { }
+}
+
+// ─── Label ─────────────────────────────────────────────
+
+public class Label extends Widget {
+    public Text: string
+
+    public Label(text: string, x: int, y: int, w: int, h: int) {
+        this.X = x
+        this.Y = y
+        this.W = w
+        this.H = h
+        this.Visible = true
+        this.Text = text
+    }
+
+    public string GetText()         { return this.Text }
+    public void   SetText(t: string) { this.Text = t }
+
+    // v0.0.2: only the border rect is drawn (no font wired yet).
+    public void Render(win: Window, theme: Theme) {
+        let bounds: Rect = new Rect(this.X, this.Y, this.W, this.H)
+        win.DrawRect(bounds, theme.GetBorder())
+    }
+}
+
+// ─── Button ────────────────────────────────────────────
+
+public class Button extends Widget {
+    public Text: string
+    public Pressed: bool
+
+    public Button(text: string, x: int, y: int, w: int, h: int) {
+        this.X = x
+        this.Y = y
+        this.W = w
+        this.H = h
+        this.Visible = true
+        this.Text = text
+        this.Pressed = false
+    }
+
+    public string GetText()    { return this.Text }
+    public bool   GetPressed() { return this.Pressed }
+    public void   SetPressed(p: bool) { this.Pressed = p }
+
+    public void Render(win: Window, theme: Theme) {
+        let bg: Color = theme.GetSurface()
+        if (this.Pressed) {
+            bg = theme.GetAccent()
+        }
+        let bounds: Rect = new Rect(this.X, this.Y, this.W, this.H)
+        win.FillRect(bounds, bg)
+        win.DrawRect(bounds, theme.GetBorder())
+    }
+
+    // Subclass-override hook. Default toggles Pressed so the
+    // user sees visual feedback even before they wire their
+    // own handler.
+    public void OnClick(e: Event) {
+        this.Pressed = true
+    }
+}
+
+// ─── Form ──────────────────────────────────────────────
+
+public class Form {
+    public Title: string
+    public Width: int
+    public Height: int
+    public Children: List<Widget>
+    public ShouldExit: bool
+
+    public Form(title: string, w: int, h: int) {
+        this.Title = title
+        this.Width = w
+        this.Height = h
+        this.Children = new List<Widget>()
+        this.ShouldExit = false
+    }
+
+    public string GetTitle()  { return this.Title }
+    public int    GetWidth()  { return this.Width }
+    public int    GetHeight() { return this.Height }
+    public int    ChildCount() { return this.Children.Count() }
+
+    public void Add(child: Widget) {
+        this.Children.Add(child)
+    }
+
+    public Widget GetChild(i: int) {
+        return this.Children.Get(i)
+    }
+
+    // Request the event loop to bail on its next iteration. Form
+    // is not actually closed here — Application.Run reads this
+    // flag and tears down the window.
+    public void Close() {
+        this.ShouldExit = true
+    }
+
+    public bool ShouldClose() {
+        return this.ShouldExit
+    }
+}
+
+// ─── Application ───────────────────────────────────────
+
+public class Application {
+    // Opens the form's SDL window, runs a blocking event loop
+    // (WaitEvent → dispatch → render → present), returns when
+    // the window's X button is hit or form.Close() is called.
+    //
+    // Mouse-down events are hit-tested against the form's
+    // children top-down (highest index = topmost = first to
+    // claim the click). v0.0.2 fires a single OnClick per hit;
+    // bubble semantics + capture phase land in v0.0.3.
+    public static void Run(form: Form) {
+        let win: Window = Window.New(form.GetTitle(), form.GetWidth(), form.GetHeight())
+        if (win == null) {
+            Console.WriteLine("Application.Run: failed to open window")
+            return
+        }
+        let theme: Theme = Theme.FromOS()
+        let bg: Color = theme.GetBackground()
+
+        while (!win.ShouldClose() && !form.ShouldClose()) {
+            let e: Event = win.Wait()
+            let kind: int = e.GetKind()
+
+            if (kind == EventKind.MOUSE_DOWN()) {
+                let i: int = form.ChildCount() - 1
+                while (i >= 0) {
+                    let w: Widget = form.GetChild(i)
+                    if (w.GetVisible()) {
+                        if (w.Contains(e.GetX(), e.GetY())) {
+                            w.OnClick(e)
+                            i = -1
+                        }
+                    }
+                    i = i - 1
+                }
+            }
+
+            // Render this frame.
+            win.Clear(bg)
+            let j: int = 0
+            while (j < form.ChildCount()) {
+                let w: Widget = form.GetChild(j)
+                if (w.GetVisible()) {
+                    w.Render(win, theme)
+                }
+                j = j + 1
+            }
+            win.Present()
+        }
+
+        win.Close()
+    }
+
+    public static void Quit(form: Form) {
+        form.Close()
     }
 }

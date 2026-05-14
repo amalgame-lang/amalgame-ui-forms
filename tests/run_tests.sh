@@ -171,6 +171,11 @@ echo "── Amalgame.UI.Forms ────────────────�
 run_test "Theme.Light surface white"       "[PASS] Theme.Light surface white"
 run_test "Theme.Dark background dark"      "[PASS] Theme.Dark background dark"
 run_test "Theme.FromOS non-null"           "[PASS] Theme.FromOS non-null"
+run_test "Widget hit-test"                 "[PASS] Widget hit-test"
+run_test "Label construction"              "[PASS] Label construction"
+run_test "Button construction + OnClick"   "[PASS] Button construction + OnClick"
+run_test "Form add + child count"          "[PASS] Form add + child count"
+run_test "Form.Close sets ShouldClose"     "[PASS] Form.Close sets ShouldClose"
 
 echo ""
 echo "────────────────────────────────────────────"
