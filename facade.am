@@ -68,8 +68,12 @@ public class Theme {
     }
 
     // Picks Light or Dark from the host OS appearance setting.
+    // Calls into amalgame-ui-sdl's OSTheme (renamed from Theme
+    // in ui-sdl v0.0.2 to avoid the namespace collision — the
+    // resolver doesn't accept fully qualified Pkg.Sub.Cls.X()
+    // paths yet).
     public static Theme FromOS() {
-        let scheme: string = Amalgame.UI.SDL.Theme.DetectOS()
+        let scheme: string = OSTheme.DetectOS()
         if (scheme == "dark") {
             return Theme.Dark()
         }

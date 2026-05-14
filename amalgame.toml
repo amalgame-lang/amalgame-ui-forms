@@ -13,7 +13,7 @@
 
 [package]
 name              = "amalgame-ui-forms"
-version           = "0.0.1-dev"
+version           = "0.0.2-dev"
 license           = "Apache-2.0"
 description       = "Retained-mode Forms toolkit — Form/Button/TextBox/layouts/theming on top of amalgame-ui-sdl."
 authors           = ["Bastien Mouget"]
@@ -21,7 +21,7 @@ required-amalgame = ">=0.8.0"
 schema-version    = 1
 
 [dependencies]
-"amalgame-ui-sdl" = { git = "github.com/amalgame-lang/amalgame-ui-sdl", tag = "v0.0.1-dev" }
+"amalgame-ui-sdl" = { git = "github.com/amalgame-lang/amalgame-ui-sdl", tag = "v0.0.2-dev" }
 
 [stdlib]
 # Primary class. The facade also exposes Form, Label, Button,
