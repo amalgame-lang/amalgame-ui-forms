@@ -301,13 +301,21 @@ public class Layout {
     public int GetRows()    { return this.Rows }
     public int GetCols()    { return this.Cols }
 
-    // Reposition every child of `form` to fit the `w × h` rect.
-    // Mutates child bounds in place. Absolute is a no-op.
-    public void Apply(form: Form, w: int, h: int) {
+    // Reposition every widget in `children` to fit the `w × h`
+    // rect. Mutates each Widget's bounds in place. Absolute is
+    // a no-op.
+    //
+    // Takes a List<Widget> instead of a Form to avoid the
+    // Layout↔Form mutual reference — Form has a Layout field
+    // and a `form.ApplyLayout()` method, so accepting a Form
+    // here would force the cgen to forward-declare Form_
+    // ChildCount/GetChild before Layout_Apply, which it
+    // doesn't yet do across class boundaries.
+    public void Apply(children: List<Widget>, w: int, h: int) {
         if (this.Kind == LayoutKind.ABSOLUTE()) {
             return
         }
-        let n: int = form.ChildCount()
+        let n: int = children.Count()
         if (n == 0) {
             return
         }
@@ -320,7 +328,7 @@ public class Layout {
             let ch: int = (h - 2 * pad - totalGap) / n
             var i: int = 0
             while (i < n) {
-                let child: Widget = form.GetChild(i)
+                let child: Widget = children.Get(i)
                 child.SetBounds(pad, pad + i * (ch + gap), cw, ch)
                 i = i + 1
             }
@@ -332,7 +340,7 @@ public class Layout {
             let cw: int = (w - 2 * pad - totalGap) / n
             var i: int = 0
             while (i < n) {
-                let child: Widget = form.GetChild(i)
+                let child: Widget = children.Get(i)
                 child.SetBounds(pad + i * (cw + gap), pad, cw, ch)
                 i = i + 1
             }
@@ -347,7 +355,7 @@ public class Layout {
             while (i < n) {
                 let r: int = i / cols
                 let c: int = i % cols
-                let child: Widget = form.GetChild(i)
+                let child: Widget = children.Get(i)
                 child.SetBounds(pad + c * (cw + gap), pad + r * (ch + gap), cw, ch)
                 i = i + 1
             }
@@ -400,7 +408,7 @@ public class Form {
     // No-op when no layout is set.
     public void ApplyLayout() {
         if (this.Layout != null) {
-            this.Layout.Apply(this, this.Width, this.Height)
+            this.Layout.Apply(this.Children, this.Width, this.Height)
         }
     }
 
