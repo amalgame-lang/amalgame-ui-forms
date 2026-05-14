@@ -1,0 +1,29 @@
+import Amalgame.UI.Forms
+
+class Program {
+    public static void Main() {
+        // Smoke: Theme.Light() returns a Theme with white-ish surface
+        let light: Theme = Theme.Light()
+        if (light.Surface.R == 255 && light.Surface.G == 255 && light.Surface.B == 255) {
+            Console.WriteLine("[PASS] Theme.Light surface white")
+        } else {
+            Console.WriteLine("[FAIL] Theme.Light surface")
+        }
+
+        // Smoke: Theme.Dark() returns a Theme with dark background
+        let dark: Theme = Theme.Dark()
+        if (dark.Background.R < 50 && dark.Background.G < 50 && dark.Background.B < 50) {
+            Console.WriteLine("[PASS] Theme.Dark background dark")
+        } else {
+            Console.WriteLine("[FAIL] Theme.Dark background")
+        }
+
+        // Smoke: Theme.FromOS() returns a Theme (no crash)
+        let osTheme: Theme = Theme.FromOS()
+        if (osTheme != null) {
+            Console.WriteLine("[PASS] Theme.FromOS non-null")
+        } else {
+            Console.WriteLine("[FAIL] Theme.FromOS null")
+        }
+    }
+}

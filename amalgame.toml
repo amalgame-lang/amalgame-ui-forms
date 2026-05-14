@@ -1,0 +1,34 @@
+# Package manifest — amalgame-ui-forms
+#
+# Cross-platform retained-mode Forms toolkit for Amalgame.
+# Widgets (Form, Label, Button, TextBox, Panel, CheckBox,
+# RadioButton, ListBox, ComboBox, MenuBar) + layouts (Stack, Grid,
+# Absolute) + theming (light/dark + OS detection) + HiDPI scaling.
+# Sits on top of `amalgame-ui-sdl` for the platform layer.
+#
+# Installation:
+#
+#   amc package add ui-forms                              # via curated index (TODO)
+#   amc package add github.com/amalgame-lang/amalgame-ui-forms@v0.0.1
+
+[package]
+name              = "amalgame-ui-forms"
+version           = "0.0.1-dev"
+license           = "Apache-2.0"
+description       = "Retained-mode Forms toolkit — Form/Button/TextBox/layouts/theming on top of amalgame-ui-sdl."
+authors           = ["Bastien Mouget"]
+required-amalgame = ">=0.8.0"
+schema-version    = 1
+
+[dependencies]
+"amalgame-ui-sdl" = { git = "github.com/amalgame-lang/amalgame-ui-sdl", tag = "v0.0.1-dev" }
+
+[stdlib]
+# Primary class. The facade also exposes Form, Label, Button,
+# TextBox, Panel, CheckBox, RadioButton, ListBox, ComboBox,
+# MenuBar, Theme, plus layouts (StackLayout, GridLayout,
+# AbsoluteLayout) under the same namespace.
+class     = "Application"
+header    = "facade-stub.h"
+namespace = "Amalgame.UI.Forms"
+facade    = "facade.am"

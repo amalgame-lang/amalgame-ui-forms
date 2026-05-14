@@ -1,0 +1,18 @@
+# Build artefacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# amc-generated C output
+*_test.c
+test
+test.c
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
