@@ -85,35 +85,44 @@ export AMALGAME_PACKAGES_DIR="$FAKE_CACHE"
 echo "  cache:     $FAKE_CACHE"
 echo ""
 
-# ── Pre-build a combined facade archive ──
-# amc --lib in standalone mode doesn't load the lockfile, so we
-# can't compile ui-forms' facade alone — it references OSTheme /
-# Color from ui-sdl and the resolver bails on "Unknown symbol".
-# Pass BOTH facade.am files in one amc invocation so all
-# cross-package types resolve in a single AST. The resulting
-# archive carries every symbol the test binary needs (Color/
-# Rect/Window/Event/Font/OSTheme/EventKind from ui-sdl, plus
-# Theme/Widget/Label/Button/Form/Application from ui-forms).
+# ── Pre-build both facade archives ──
+# `amc --lib a.am b.am` only emits the LAST file's symbols (no
+# multi-input merge), so we run two separate amc --lib calls.
+# ui-forms must be compiled from a cwd that carries amalgame.lock
+# pointing into the cache — otherwise the resolver bails on
+# OSTheme / Color / Window with "Unknown symbol".
 FACADE_BUILD_DIR="$BUILD_DIR/facade"
 mkdir -p "$FACADE_BUILD_DIR"
-COMBINED_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-ui-forms.a"
-echo "── Pre-compiling ui-sdl + ui-forms facades → $(basename "$COMBINED_ARCHIVE") ──"
-"$AMC" --lib --quiet \
-    "$UI_SDL_ROOT/facade.am" \
-    "$PKG_ROOT/facade.am" \
-    -o "$FACADE_BUILD_DIR/ui-forms-combined" 2>&1 | head -5
-if [ ! -f "$FACADE_BUILD_DIR/ui-forms-combined.c" ]; then
-    echo "ERROR: amc failed to emit ui-forms-combined.c" >&2; exit 1
+SDL_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-ui-sdl.a"
+FORMS_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-ui-forms.a"
+
+echo "── Pre-compiling ui-sdl facade.am → $(basename "$SDL_ARCHIVE") ──"
+"$AMC" --lib --quiet "$UI_SDL_ROOT/facade.am" -o "$FACADE_BUILD_DIR/sdl-facade" 2>&1 | head -5
+if [ ! -f "$FACADE_BUILD_DIR/sdl-facade.c" ]; then
+    echo "ERROR: amc failed to emit sdl-facade.c" >&2; exit 1
 fi
 gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS -w -c \
-    "$FACADE_BUILD_DIR/ui-forms-combined.c" \
-    -o "$FACADE_BUILD_DIR/ui-forms-combined.o" 2>&1 | head -10
-if [ ! -f "$FACADE_BUILD_DIR/ui-forms-combined.o" ]; then
-    echo "ERROR: gcc failed to build ui-forms-combined.o" >&2; exit 1
+    "$FACADE_BUILD_DIR/sdl-facade.c" -o "$FACADE_BUILD_DIR/sdl-facade.o" 2>&1 | head -10
+if [ ! -f "$FACADE_BUILD_DIR/sdl-facade.o" ]; then
+    echo "ERROR: gcc failed to build sdl-facade.o" >&2; exit 1
 fi
-ar rcs "$COMBINED_ARCHIVE" "$FACADE_BUILD_DIR/ui-forms-combined.o"
+ar rcs "$SDL_ARCHIVE" "$FACADE_BUILD_DIR/sdl-facade.o"
 
-echo "  built: $COMBINED_ARCHIVE"
+echo "── Pre-compiling ui-forms facade.am → $(basename "$FORMS_ARCHIVE") ──"
+# Run from $PROJ_DIR so amc reads amalgame.lock and the cache
+# symlinks resolve OSTheme/Color/Window from ui-sdl.
+(cd "$PROJ_DIR" && "$AMC" --lib --quiet "$PKG_ROOT/facade.am" -o "$FACADE_BUILD_DIR/forms-facade" 2>&1 | head -5)
+if [ ! -f "$FACADE_BUILD_DIR/forms-facade.c" ]; then
+    echo "ERROR: amc failed to emit forms-facade.c" >&2; exit 1
+fi
+gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS -w -c \
+    "$FACADE_BUILD_DIR/forms-facade.c" -o "$FACADE_BUILD_DIR/forms-facade.o" 2>&1 | head -10
+if [ ! -f "$FACADE_BUILD_DIR/forms-facade.o" ]; then
+    echo "ERROR: gcc failed to build forms-facade.o" >&2; exit 1
+fi
+ar rcs "$FORMS_ARCHIVE" "$FACADE_BUILD_DIR/forms-facade.o"
+
+echo "  built: $SDL_ARCHIVE + $FORMS_ARCHIVE"
 echo ""
 
 run_test() {
@@ -130,10 +139,12 @@ run_test() {
     fi
     if [ ! -f "$out_base.c" ]; then echo -e "${RED}FAIL${NC} (no .c)"; FAIL=$((FAIL + 1)); return; fi
     local gcc_log
-    # Link order: test.c + combined facade archive (carries both
-    # ui-sdl and ui-forms symbols) + system libs.
+    # Link order: test.c + ui-forms archive (Theme, Application,
+    # Widget, Form…) + ui-sdl archive (Color, OSTheme, Window…)
+    # + system libs. ui-forms is listed first because some of
+    # its symbols reference ui-sdl ones during link resolution.
     gcc_log=$(gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS "$out_base.c" \
-        "$COMBINED_ARCHIVE" \
+        "$FORMS_ARCHIVE" "$SDL_ARCHIVE" \
         -lgc -lm -lcurl -lz -ldl -lpthread $SDL_LIBS -o "$out_base" 2>&1)
     if [ ! -x "$out_base" ]; then
         echo -e "${RED}FAIL${NC} (link)"
