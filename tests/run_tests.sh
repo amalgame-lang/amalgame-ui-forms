@@ -85,6 +85,47 @@ export AMALGAME_PACKAGES_DIR="$FAKE_CACHE"
 echo "  cache:     $FAKE_CACHE"
 echo ""
 
+# ── Pre-build both facade archives ──
+# Mimics what `amc package add` does via PrecompileFacade for
+# packages with [stdlib].facade. Without these the test.c
+# references Amalgame_UI_*_Class_Method symbols that ld can't
+# resolve. The ui-sdl archive provides Color/Rect/Window/Event/
+# Font/OSTheme/EventKind; the ui-forms archive provides Theme/
+# Application.
+FACADE_BUILD_DIR="$BUILD_DIR/facade"
+mkdir -p "$FACADE_BUILD_DIR"
+
+SDL_FACADE_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-Window.a"
+echo "── Pre-compiling ui-sdl facade.am → $(basename "$SDL_FACADE_ARCHIVE") ──"
+"$AMC" --lib --quiet "$UI_SDL_ROOT/facade.am" -o "$FACADE_BUILD_DIR/Window-facade" 2>&1 | head -5
+if [ ! -f "$FACADE_BUILD_DIR/Window-facade.c" ]; then
+    echo "ERROR: amc failed to emit Window-facade.c" >&2; exit 1
+fi
+gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS -w -c \
+    "$FACADE_BUILD_DIR/Window-facade.c" \
+    -o "$FACADE_BUILD_DIR/Window-facade.o" 2>&1 | head -10
+if [ ! -f "$FACADE_BUILD_DIR/Window-facade.o" ]; then
+    echo "ERROR: gcc failed to build Window-facade.o" >&2; exit 1
+fi
+ar rcs "$SDL_FACADE_ARCHIVE" "$FACADE_BUILD_DIR/Window-facade.o"
+
+FORMS_FACADE_ARCHIVE="$FACADE_BUILD_DIR/libamalgame-pkg-Application.a"
+echo "── Pre-compiling ui-forms facade.am → $(basename "$FORMS_FACADE_ARCHIVE") ──"
+"$AMC" --lib --quiet "$PKG_ROOT/facade.am" -o "$FACADE_BUILD_DIR/Application-facade" 2>&1 | head -5
+if [ ! -f "$FACADE_BUILD_DIR/Application-facade.c" ]; then
+    echo "ERROR: amc failed to emit Application-facade.c" >&2; exit 1
+fi
+gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS -w -c \
+    "$FACADE_BUILD_DIR/Application-facade.c" \
+    -o "$FACADE_BUILD_DIR/Application-facade.o" 2>&1 | head -10
+if [ ! -f "$FACADE_BUILD_DIR/Application-facade.o" ]; then
+    echo "ERROR: gcc failed to build Application-facade.o" >&2; exit 1
+fi
+ar rcs "$FORMS_FACADE_ARCHIVE" "$FACADE_BUILD_DIR/Application-facade.o"
+
+echo "  built: $SDL_FACADE_ARCHIVE + $(basename "$FORMS_FACADE_ARCHIVE")"
+echo ""
+
 run_test() {
     local name="$1"; local expected="$2"
     printf "  %-38s" "$name"
@@ -99,7 +140,10 @@ run_test() {
     fi
     if [ ! -f "$out_base.c" ]; then echo -e "${RED}FAIL${NC} (no .c)"; FAIL=$((FAIL + 1)); return; fi
     local gcc_log
+    # Link order: test.c + ui-forms archive (Theme, Application) +
+    # ui-sdl archive (Color, OSTheme, …) + system libs.
     gcc_log=$(gcc -O2 -I"$AMC_RUNTIME" -I"$UI_SDL_RUNTIME" $SDL_CFLAGS "$out_base.c" \
+        "$FORMS_FACADE_ARCHIVE" "$SDL_FACADE_ARCHIVE" \
         -lgc -lm -lcurl -lz -ldl -lpthread $SDL_LIBS -o "$out_base" 2>&1)
     if [ ! -x "$out_base" ]; then
         echo -e "${RED}FAIL${NC} (link)"
