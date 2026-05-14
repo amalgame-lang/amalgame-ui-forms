@@ -156,6 +156,9 @@ class Program {
             Console.WriteLine("[PASS] Layout.StackVertical")
         } else {
             Console.WriteLine("[FAIL] Layout.StackVertical")
+            Console.WriteLine("  sv0 X/Y/W/H = " + String_FromInt(sv0.GetX()) + "/" + String_FromInt(sv0.GetY()) + "/" + String_FromInt(sv0.GetW()) + "/" + String_FromInt(sv0.GetH()))
+            Console.WriteLine("  sv1 X/Y/W/H = " + String_FromInt(sv1.GetX()) + "/" + String_FromInt(sv1.GetY()) + "/" + String_FromInt(sv1.GetW()) + "/" + String_FromInt(sv1.GetH()))
+            Console.WriteLine("  sv2 X/Y/W/H = " + String_FromInt(sv2.GetX()) + "/" + String_FromInt(sv2.GetY()) + "/" + String_FromInt(sv2.GetW()) + "/" + String_FromInt(sv2.GetH()))
         }
 
         // ── Layout.StackHorizontal positions children L→R ──
