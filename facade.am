@@ -161,6 +161,17 @@ public class Label extends Widget {
     public string GetText()         { return this.Text }
     public void   SetText(t: string) { this.Text = t }
 
+    // Bootstrap cgen mangles method calls with the static
+    // receiver type — `lbl.GetW()` lowers to Label_GetW, not
+    // Widget_GetW, even though GetW is inherited. Explicit
+    // trampolines here keep consumer code working until the
+    // cgen learns to walk the parent chain.
+    public int  GetX()       { return this.X }
+    public int  GetY()       { return this.Y }
+    public int  GetW()       { return this.W }
+    public int  GetH()       { return this.H }
+    public bool GetVisible() { return this.Visible }
+
     // v0.0.2: only the border rect is drawn (no font wired yet).
     public void Render(win: Window, theme: Theme) {
         let bounds: Rect = new Rect(this.X, this.Y, this.W, this.H)
@@ -187,6 +198,15 @@ public class Button extends Widget {
     public string GetText()    { return this.Text }
     public bool   GetPressed() { return this.Pressed }
     public void   SetPressed(p: bool) { this.Pressed = p }
+
+    // Same cgen-inheritance limitation as Label — explicit
+    // trampolines so external callers can read Widget-side
+    // fields without ld bailing on Label_GetW symbols.
+    public int  GetX()       { return this.X }
+    public int  GetY()       { return this.Y }
+    public int  GetW()       { return this.W }
+    public int  GetH()       { return this.H }
+    public bool GetVisible() { return this.Visible }
 
     public void Render(win: Window, theme: Theme) {
         let bg: Color = theme.GetSurface()
