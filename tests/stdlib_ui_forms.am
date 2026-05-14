@@ -85,8 +85,14 @@ class Program {
         if (fOk) { fOk = f.GetTitle() == "smoke" }
         if (fOk) { fOk = f.GetWidth() == 320 }
         if (fOk) {
-            f.Add(lbl)
-            f.Add(btn)
+            // Upcast via intermediate Widget locals — the cgen
+            // doesn't emit implicit Label*/Button* → Widget*
+            // coercion at the call site, so we stage the
+            // promotion ourselves.
+            let lblW: Widget = lbl
+            let btnW: Widget = btn
+            f.Add(lblW)
+            f.Add(btnW)
             fOk = f.ChildCount() == 2
         }
         if (fOk) {
