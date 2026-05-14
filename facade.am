@@ -1,58 +1,57 @@
 namespace Amalgame.UI.Forms
 
+import Amalgame.UI.SDL
+
 // ═══════════════════════════════════════════════════════
-//  facade.am — Forms toolkit (v0.0.2-dev)
+//  facade.am — Forms toolkit (v0.0.3-dev)
 // ═══════════════════════════════════════════════════════
 //
-// Public surface (v0.0.2):
-//   Color                — RGBA primitive (local copy, see note)
-//   Theme.Light() / Dark() / FromOS()
-//     — colour palettes (Background/Surface/Text/Accent/Border/TextMuted)
-//     — FromOS picks Light or Dark from the host appearance probe
-//       baked into amalgame-ui-sdl's runtime header.
+// Public surface:
 //
-// Why a local `Color` copy?
-//   amc 0.8.6's `amc --lib` doesn't resolve cross-package types
-//   when pre-compiling a facade.am alone — the cgen mangles
-//   `import Amalgame.UI.SDL`'s `Color` as if it lived in the
-//   current package (`Amalgame_UI_Forms_Color`) and gcc later
-//   trips on the missing struct definition. Until amc grows
-//   --lib lockfile support (tracked for ui-forms v0.1.0), we
-//   ship a Color *local* to Amalgame.UI.Forms. When v0.1.0
-//   wires Widget/Form/Application against amalgame-ui-sdl's
-//   Color, we either revisit the duplication or accept it as
-//   the visible cost of the namespace split.
+//   Theming:
+//     Theme                  — colour palette (Background/Surface/
+//                              Text/Accent/Border/TextMuted)
+//     Theme.Light() / Dark() / FromOS()
 //
-// Out of scope for v0.0.2 (deferred to v0.1.0):
-//   Widget / Label / Button / Form / Application.Run.
-//   The class-with-tag refactor (commit 981f71e) hit further
-//   amc bugs (multi-file struct ordering breaks @c block field
-//   access in ui-sdl's Window/Event/Font). Picked back up once
-//   amc lands the missing pieces (tracked in ROADMAP_COMPLET.md
-//   under "Compiler open bugs").
+//   Widgets (class-with-tag, no inheritance — see Widget below):
+//     WidgetKind.LABEL() / BUTTON()
+//     Widget                 — single concrete class with Kind tag
+//     Widget.Label(text, x, y, w, h)
+//     Widget.Button(text, x, y, w, h)
+//
+//   Forms:
+//     Form                   — top-level container with title +
+//                              size + children list
+//     form.Add(widget) / form.GetChild(i) / form.ChildCount()
+//     form.Close() / form.ShouldClose()
+//
+//   Lifecycle:
+//     Application.Run(form)  — opens the SDL window, blocks on
+//                              WaitEvent, dispatches mouse-down
+//                              to widgets via hit-test, renders
+//                              each frame. Returns when the form
+//                              closes (window X or form.Close()).
+//
+// Status v0.0.3-dev:
+//   - Widget/Label/Button via class-with-tag (no Label/Button
+//     subclass, sidesteps amc bootstrap's inheritance dispatch
+//     limitations — see Widget comment for the full rationale).
+//   - Form + Application.Run wired against ui-sdl Window/Event.
+//   - Text rendering deferred: Label/Button render their
+//     bounding rect only. Font wiring lands in v0.0.4 alongside
+//     the first Stack/Grid layouts.
+//   - Click handler is a Pressed flag (no closure-in-field yet).
+//     Callers poll widget.GetPressed() after Application.Run
+//     returns, or override OnClick by subclassing Widget — both
+//     await v0.0.5 when storable Closures get stress-tested.
+//   - Deferred: Layouts (Stack/Grid/Absolute), Panel, CheckBox,
+//     RadioButton, ListBox, ComboBox, MenuBar, HiDPI scaling.
 
 @c {
     #include "Amalgame_UI.h"
 }
 
-public class Color {
-    public R: int
-    public G: int
-    public B: int
-    public A: int
-
-    public Color(r: int, g: int, b: int, a: int) {
-        this.R = r
-        this.G = g
-        this.B = b
-        this.A = a
-    }
-
-    public int GetR() { return this.R }
-    public int GetG() { return this.G }
-    public int GetB() { return this.B }
-    public int GetA() { return this.A }
-}
+// ─── Theme ─────────────────────────────────────────────
 
 public class Theme {
     public Background: Color
@@ -71,6 +70,9 @@ public class Theme {
         this.Border = border
     }
 
+    // Get* accessors so consumer code reads fields without
+    // bumping into the cgen's "incomplete external typedef"
+    // gcc error.
     public Color GetBackground() { return this.Background }
     public Color GetSurface()    { return this.Surface }
     public Color GetText()       { return this.Text }
@@ -98,19 +100,228 @@ public class Theme {
             new Color( 72,  72,  74, 255))  // border
     }
 
-    // Returns Light() or Dark() based on the host's current
-    // appearance setting. Calls the C-side probe in ui-sdl's
-    // runtime header directly (the file-scope @c block above
-    // brings it in) — no Amalgame.UI.SDL import needed.
+    // Picks Light or Dark from the host OS appearance setting.
+    // Calls into amalgame-ui-sdl's OSTheme detector.
     public static Theme FromOS() {
-        let isDark: bool = false
-        @c {
-            const char* s = (const char*)Amalgame_UI_DetectOSTheme();
-            isDark = (s && s[0] == 'd') ? 1 : 0;
-        }
-        if (isDark) {
+        let scheme: string = OSTheme.DetectOS()
+        if (scheme == "dark") {
             return Theme.Dark()
         }
         return Theme.Light()
+    }
+}
+
+// ─── WidgetKind tag constants ──────────────────────────
+//
+// Static getters (the bootstrap rejects `public static int X = N`
+// field initialisers). Order: 0=label, 1=button. Extend the
+// switch in Widget.Render / Widget.OnClick when new kinds land.
+
+public class WidgetKind {
+    public static int LABEL()  { return 0 }
+    public static int BUTTON() { return 1 }
+}
+
+// ─── Widget ────────────────────────────────────────────
+//
+// Single concrete class carrying a Kind tag. Render and OnClick
+// dispatch on Kind. Extra fields cover the union of all widget
+// payloads — currently Text (label/button) + Pressed (button).
+//
+// Why no inheritance? Two open amc 0.8.7 bugs bite
+// `class Label extends Widget`:
+//   1. Inherited-method-call dispatch — `lbl.GetW()` emits a
+//      call to `Label_GetW` instead of `Widget_GetW`, so gcc
+//      flags an implicit declaration.
+//   2. No implicit upcast — neither at the call site nor via
+//      an intermediate `let lblW: Widget = lbl`. The
+//      typechecker rejects the assignment outright.
+// The class-with-tag pattern (same as JsonValue / TomlValue
+// in amc's bundled stdlib) sidesteps both: every widget is
+// the same C struct, dispatch is a small switch in Render /
+// OnClick.
+
+public class Widget {
+    public Kind: int        // see WidgetKind.*
+    public X: int
+    public Y: int
+    public W: int
+    public H: int
+    public Visible: bool
+    public Text: string     // empty for kinds without text
+    public Pressed: bool    // only meaningful for Button
+
+    public Widget(kind: int, x: int, y: int, w: int, h: int, text: string) {
+        this.Kind    = kind
+        this.X       = x
+        this.Y       = y
+        this.W       = w
+        this.H       = h
+        this.Visible = true
+        this.Text    = text
+        this.Pressed = false
+    }
+
+    // ─── Factories ────────────────────────────────────
+
+    public static Widget Label(text: string, x: int, y: int, w: int, h: int) {
+        return new Widget(WidgetKind.LABEL(), x, y, w, h, text)
+    }
+
+    public static Widget Button(text: string, x: int, y: int, w: int, h: int) {
+        return new Widget(WidgetKind.BUTTON(), x, y, w, h, text)
+    }
+
+    // ─── Accessors ────────────────────────────────────
+
+    public int    GetKind()    { return this.Kind }
+    public int    GetX()       { return this.X }
+    public int    GetY()       { return this.Y }
+    public int    GetW()       { return this.W }
+    public int    GetH()       { return this.H }
+    public bool   GetVisible() { return this.Visible }
+    public string GetText()    { return this.Text }
+    public bool   GetPressed() { return this.Pressed }
+
+    public void SetVisible(v: bool) { this.Visible = v }
+    public void SetText(t: string)  { this.Text = t }
+    public void SetPressed(p: bool) { this.Pressed = p }
+
+    // Half-open rectangle: [X, X+W) × [Y, Y+H).
+    public bool Contains(px: int, py: int) {
+        if (px < this.X) { return false }
+        if (px >= this.X + this.W) { return false }
+        if (py < this.Y) { return false }
+        if (py >= this.Y + this.H) { return false }
+        return true
+    }
+
+    // ─── Render / OnClick dispatch ────────────────────
+
+    // v0.0.3: only the bounding rect is drawn (no font wired
+    // yet). Label gets a border-only rect; Button gets a filled
+    // rect (Pressed → accent, otherwise surface) + border.
+    public void Render(win: Window, theme: Theme) {
+        if (!this.Visible) { return }
+        let bounds: Rect = new Rect(this.X, this.Y, this.W, this.H)
+        if (this.Kind == WidgetKind.LABEL()) {
+            win.DrawRect(bounds, theme.GetBorder())
+        }
+        if (this.Kind == WidgetKind.BUTTON()) {
+            let bg: Color = theme.GetSurface()
+            if (this.Pressed) {
+                bg = theme.GetAccent()
+            }
+            win.FillRect(bounds, bg)
+            win.DrawRect(bounds, theme.GetBorder())
+        }
+    }
+
+    // Default OnClick handler. Button flips Pressed so the
+    // user sees visual feedback even before they wire their
+    // own handler. Label is a no-op.
+    public void OnClick(e: Event) {
+        if (this.Kind == WidgetKind.BUTTON()) {
+            this.Pressed = true
+        }
+    }
+}
+
+// ─── Form ──────────────────────────────────────────────
+
+public class Form {
+    public Title:      string
+    public Width:      int
+    public Height:     int
+    public Children:   List<Widget>
+    public ShouldExit: bool
+
+    public Form(title: string, w: int, h: int) {
+        this.Title      = title
+        this.Width      = w
+        this.Height     = h
+        this.Children   = new List<Widget>()
+        this.ShouldExit = false
+    }
+
+    public string GetTitle()   { return this.Title }
+    public int    GetWidth()   { return this.Width }
+    public int    GetHeight()  { return this.Height }
+    public int    ChildCount() { return this.Children.Count() }
+
+    public void Add(child: Widget) {
+        this.Children.Add(child)
+    }
+
+    public Widget GetChild(i: int) {
+        return this.Children.Get(i)
+    }
+
+    // Request the event loop to bail on its next iteration.
+    // The actual window teardown happens in Application.Run.
+    public void Close() {
+        this.ShouldExit = true
+    }
+
+    public bool ShouldClose() {
+        return this.ShouldExit
+    }
+}
+
+// ─── Application ───────────────────────────────────────
+
+public class Application {
+    // Opens the form's SDL window, runs a blocking event loop
+    // (WaitEvent → dispatch → render → present), returns when
+    // the window's X button is hit or form.Close() is called.
+    //
+    // Mouse-down events are hit-tested against the form's
+    // children top-down (highest index = topmost = first to
+    // claim the click). v0.0.3 fires a single OnClick per hit;
+    // bubble semantics + capture phase land later.
+    public static void Run(form: Form) {
+        let win: Window = Window.New(form.GetTitle(), form.GetWidth(), form.GetHeight())
+        if (win == null) {
+            Console.WriteLine("Application.Run: failed to open window")
+            return
+        }
+        let theme: Theme = Theme.FromOS()
+        let bg: Color = theme.GetBackground()
+
+        while (!win.ShouldClose() && !form.ShouldClose()) {
+            let e: Event = win.Wait()
+            let kind: int = e.GetKind()
+
+            if (kind == EventKind.MOUSE_DOWN()) {
+                let ex: int = e.GetX()
+                let ey: int = e.GetY()
+                // Top-down hit test: walk children from last to
+                // first, fire OnClick on the first hit.
+                let n: int = form.ChildCount()
+                var i: int = n - 1
+                while (i >= 0) {
+                    let w: Widget = form.GetChild(i)
+                    if (w.GetVisible() && w.Contains(ex, ey)) {
+                        w.OnClick(e)
+                        i = -1   // break — bootstrap parser
+                                 // doesn't expose `break`
+                    } else {
+                        i = i - 1
+                    }
+                }
+            }
+
+            // Render frame.
+            win.Clear(bg)
+            let n2: int = form.ChildCount()
+            var j: int = 0
+            while (j < n2) {
+                let w: Widget = form.GetChild(j)
+                w.Render(win, theme)
+                j = j + 1
+            }
+            win.Present()
+        }
+        win.Close()
     }
 }
