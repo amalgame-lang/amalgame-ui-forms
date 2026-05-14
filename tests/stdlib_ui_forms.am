@@ -131,8 +131,8 @@ class Program {
 
         // ── Layout.StackVertical positions children top-down ──
         // Form 200×400, padding=10, spacing=10, 3 widgets:
-        // child width = 200-2*10 = 180; child height =
-        // (400-2*10-2*10)/3 = 116 (truncated).
+        //   cw = 200 - 2*10                = 180
+        //   ch = (400 - 2*10 - 2*10) / 3   = 120
         //
         // Note: bootstrap cgen mangles chained calls like
         // form.GetChild(0).GetX() across package boundaries
@@ -150,8 +150,8 @@ class Program {
         let svOk: bool = sv0.GetX() == 10
         if (svOk) { svOk = sv0.GetY() == 10 }
         if (svOk) { svOk = sv0.GetW() == 180 }
-        if (svOk) { svOk = sv1.GetY() == 10 + 116 + 10 }
-        if (svOk) { svOk = sv2.GetY() == 10 + 2 * (116 + 10) }
+        if (svOk) { svOk = sv1.GetY() == 10 + 120 + 10 }
+        if (svOk) { svOk = sv2.GetY() == 10 + 2 * (120 + 10) }
         if (svOk) {
             Console.WriteLine("[PASS] Layout.StackVertical")
         } else {
@@ -159,6 +159,9 @@ class Program {
         }
 
         // ── Layout.StackHorizontal positions children L→R ──
+        // Form 400×200, padding=10, spacing=10, 3 widgets:
+        //   cw = (400 - 2*10 - 2*10) / 3 = 120
+        //   ch = 200 - 2*10              = 180
         let hForm: Form = new Form("stack-h", 400, 200)
         hForm.Add(Widget.Label("a", 0, 0, 0, 0))
         hForm.Add(Widget.Label("b", 0, 0, 0, 0))
@@ -170,8 +173,8 @@ class Program {
         let sh2: Widget = hForm.GetChild(2)
         let shOk: bool = sh0.GetX() == 10
         if (shOk) { shOk = sh0.GetH() == 180 }
-        if (shOk) { shOk = sh1.GetX() == 10 + 116 + 10 }
-        if (shOk) { shOk = sh2.GetX() == 10 + 2 * (116 + 10) }
+        if (shOk) { shOk = sh1.GetX() == 10 + 120 + 10 }
+        if (shOk) { shOk = sh2.GetX() == 10 + 2 * (120 + 10) }
         if (shOk) {
             Console.WriteLine("[PASS] Layout.StackHorizontal")
         } else {
