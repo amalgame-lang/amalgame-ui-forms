@@ -333,11 +333,19 @@ public class Widget {
         let textMuted: Color = theme.GetTextMuted()
 
         // Inner-padded text origin — 4px from left, vertically
-        // centered for the typical font height. Font=null skips
-        // text entirely (Application.Run passes null when the
-        // default font failed to load).
+        // centered using the *rendered* text height (font.GetSize
+        // is the point size, which under-estimates the actual
+        // bitmap height by 25-50% depending on the font, so the
+        // text used to drift toward the top of the widget).
+        // Font=null skips text entirely (Application.Run passes
+        // null when the default font failed to load).
         let textPadX: int = 4
-        let textY: int = this.Y + (this.H - font.GetSize()) / 2
+        // Use a stable measurement string ('Mg' covers an ascender
+        // + a descender) so widgets with different labels still
+        // line up vertically on the same row.
+        let lineH: int = font.MeasureHeight("Mg")
+        let avail: int = this.H - lineH
+        let textY: int = this.Y + avail / 2
 
         if (this.Kind == WidgetKind.LABEL()) {
             win.DrawRect(bounds, border)
