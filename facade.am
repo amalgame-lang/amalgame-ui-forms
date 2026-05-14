@@ -1,0 +1,90 @@
+namespace Amalgame.UI.Forms
+
+import Amalgame.UI.SDL
+
+// ═══════════════════════════════════════════════════════
+//  facade.am — Forms toolkit (v0.0.1-dev scaffold)
+// ═══════════════════════════════════════════════════════
+//
+// Public surface (incrementally filled across v0.0.x):
+//
+//   Widgets:
+//     Form, Label, Button, TextBox, Panel,
+//     CheckBox, RadioButton, ListBox, ComboBox, MenuBar
+//
+//   Layouts:
+//     StackLayout (Vertical / Horizontal)
+//     GridLayout (rows × cols)
+//     AbsoluteLayout (X/Y/W/H)
+//
+//   Theming:
+//     Theme class with Background / Text / Accent / Border / etc.
+//     Theme.Light() / Theme.Dark() presets
+//     Theme.FromOS() — picks Light or Dark via Amalgame.UI.SDL.Theme.DetectOS()
+//
+//   Application lifecycle:
+//     Application.Run(rootForm) blocking event loop
+//     Application.SetTheme(theme)
+//     Application.Quit()
+//
+// Status v0.0.1-dev: only Theme + Application skeleton wired.
+// Widgets land in v0.0.2+.
+
+public class Theme {
+    public Background: Color
+    public Surface: Color
+    public Text: Color
+    public TextMuted: Color
+    public Accent: Color
+    public Border: Color
+
+    public Theme(bg: Color, surface: Color, text: Color, textMuted: Color, accent: Color, border: Color) {
+        this.Background = bg
+        this.Surface = surface
+        this.Text = text
+        this.TextMuted = textMuted
+        this.Accent = accent
+        this.Border = border
+    }
+
+    public static Theme Light() {
+        return new Theme(
+            new Color(245, 245, 247, 255),  // background
+            new Color(255, 255, 255, 255),  // surface
+            new Color( 30,  30,  30, 255),  // text
+            new Color(120, 120, 120, 255),  // text muted
+            new Color(  0, 122, 255, 255),  // accent (system blue)
+            new Color(220, 220, 220, 255))  // border
+    }
+
+    public static Theme Dark() {
+        return new Theme(
+            new Color( 28,  28,  30, 255),  // background
+            new Color( 44,  44,  46, 255),  // surface
+            new Color(235, 235, 245, 255),  // text
+            new Color(155, 155, 165, 255),  // text muted
+            new Color( 10, 132, 255, 255),  // accent (system blue dark)
+            new Color( 72,  72,  74, 255))  // border
+    }
+
+    // Picks Light or Dark from the host OS appearance setting.
+    public static Theme FromOS() {
+        let scheme: string = Amalgame.UI.SDL.Theme.DetectOS()
+        if (scheme == "dark") {
+            return Theme.Dark()
+        }
+        return Theme.Light()
+    }
+}
+
+public class Application {
+    // Reserved — full event-loop impl lands in v0.0.2 once
+    // amalgame-ui-sdl exposes Window / Event.
+    public static void Run() {
+        Console.WriteLine("Application.Run — not yet implemented (v0.0.1-dev scaffold)")
+    }
+
+    public static void Quit() {
+        Console.WriteLine("Application.Quit — not yet implemented (v0.0.1-dev scaffold)")
+    }
+}
