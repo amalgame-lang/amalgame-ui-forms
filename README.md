@@ -1,5 +1,25 @@
 # amalgame-ui-forms
 
+> ## ⚠️ Sunset — 2026-05-15
+>
+> **`amalgame-ui-forms` is no longer the recommended GUI toolkit for
+> Amalgame apps.** Replace it with [`amalgame-ui-web`](https://github.com/amalgame-lang/amalgame-ui-web)
+> v0.0.3+ — a webview-based binding that renders HTML/CSS/JS in the
+> OS-native engine (WebView2 / WKWebView / WebKitGTK) with an AM-side
+> `Element` / `Page` builder and JS ↔ AM IPC via `Window.Bind`.
+>
+> The decision matrix that drove the pivot lives in [`docs/proposals/amalgame-ui-web.md`](https://github.com/amalgame-lang/Amalgame/blob/main/docs/proposals/amalgame-ui-web.md)
+> in the main repo. TL;DR: SDL retained-mode means re-implementing every
+> widget by hand (rounded corners, native fonts, OS theming, HiDPI, …)
+> with zero leverage from the OS — webview gets all of that for free.
+>
+> v0.1.4 stays on the packages-index for existing consumers; no further
+> releases are planned. Existing apps keep working — this is a "stop
+> investing here", not a "your code breaks". Migration guide TBD when a
+> first consumer needs it.
+
+---
+
 Cross-platform retained-mode **Forms toolkit** for
 [Amalgame](https://github.com/amalgame-lang/Amalgame).
 Widgets (`Form`, `Label`, `Button`, `TextBox`, `Panel`,
@@ -10,7 +30,7 @@ theming (light/dark + OS detection) + HiDPI scaling.
 Sits on top of [`amalgame-ui-sdl`](https://github.com/amalgame-lang/amalgame-ui-sdl)
 for the platform layer.
 
-> **Status: v0.0.1-dev — work in progress.** Public API is being designed.
+> **Status: v0.1.4 — sunset.** No further development. Use `amalgame-ui-web`.
 
 ## Install
 
