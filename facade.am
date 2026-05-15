@@ -300,11 +300,26 @@ public class Widget {
     }
 
     // Half-open rectangle: [X, X+W) × [Y, Y+H).
+    //
+    // Extended downward when an open dropdown (ComboBox / MenuBar)
+    // hangs below the closed row — otherwise clicks on dropdown
+    // items would miss the hit-test and never reach OnClick.
     public bool Contains(px: int, py: int) {
         if (px < this.X) { return false }
         if (px >= this.X + this.W) { return false }
         if (py < this.Y) { return false }
-        if (py >= this.Y + this.H) { return false }
+        var bottom: int = this.Y + this.H
+        if (this.Open) {
+            if (this.Kind == WidgetKind.COMBOBOX()) {
+                let n: int = this.Items.Count()
+                bottom = bottom + n * this.H
+            }
+            if (this.Kind == WidgetKind.MENUBAR()) {
+                let n: int = this.Items.Count()
+                bottom = bottom + n * this.H
+            }
+        }
+        if (py >= bottom) { return false }
         return true
     }
 
@@ -399,6 +414,16 @@ public class Widget {
             win.DrawRect(bounds, bc)
             if (font != null) {
                 win.DrawText(font, this.Text, this.X + textPadX, textY, textColor)
+                // Static caret at CursorPos when focused — gives a
+                // clear "you can type here" signal.
+                if (this.Focused) {
+                    let prefix: string = String_Substring(this.Text, 0, this.CursorPos)
+                    let prefixW: int = font.MeasureWidth(prefix)
+                    let cx: int = this.X + textPadX + prefixW
+                    let cy1: int = this.Y + 4
+                    let cy2: int = this.Y + this.H - 4
+                    win.DrawLine(cx, cy1, cx, cy2, textColor)
+                }
             }
         }
         if (this.Kind == WidgetKind.LISTBOX()) {
@@ -586,11 +611,19 @@ public class Widget {
                         this.Open = true
                     }
                 }
+            } else if (this.Open && dy >= this.H && n > 0) {
+                // Click in dropdown row: store row label in Text so
+                // consumer code can read widget.GetText(), and close
+                // the dropdown. (Proper callback wiring lands when
+                // ui-forms gets Closures-in-fields support.)
+                let belowDy: int = dy - this.H
+                let rowH: int = this.H
+                let idx: int = belowDy / rowH
+                if (idx >= 0 && idx < n) {
+                    this.Text = this.Items.Get(idx)
+                }
+                this.Open = false
             }
-            // v0.0.7: clicking the dropdown rows is a no-op
-            // (no callback wiring yet). Click outside the bar
-            // is handled by Application.Run's mouse-down path
-            // closing menus — we'll add that hook in v0.0.8.
         }
     }
 
@@ -955,6 +988,20 @@ public class Application {
         // and window opening — high-DPI scaling, tiling WMs, …).
         form.ApplyLayout()
 
+        // Initial render — Wait() blocks until the first event, so
+        // without this paint the window stays blank until the user
+        // moves the mouse over it. Repaints follow events inside
+        // the loop body below.
+        win.Clear(bg)
+        let n0: int = form.ChildCount()
+        var k0: int = 0
+        while (k0 < n0) {
+            let w0: Widget = form.GetChild(k0)
+            w0.Render(win, theme, font)
+            k0 = k0 + 1
+        }
+        win.Present()
+
         while (!win.ShouldClose() && !form.ShouldClose()) {
             let e: Event = win.Wait()
             let kind: int = e.GetKind()
@@ -993,6 +1040,22 @@ public class Application {
                     } else {
                         i = i - 1
                     }
+                }
+            }
+
+            // MOUSE_UP: release Pressed state on every Button so
+            // its visual highlight clears once the user lifts the
+            // mouse. Without this the first clicked button stays
+            // accent-colour forever.
+            if (kind == EventKind.MOUSE_UP()) {
+                let n: int = form.ChildCount()
+                var i: int = 0
+                while (i < n) {
+                    let w: Widget = form.GetChild(i)
+                    if (w.GetKind() == WidgetKind.BUTTON()) {
+                        w.SetPressed(false)
+                    }
+                    i = i + 1
                 }
             }
 
