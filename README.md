@@ -32,15 +32,30 @@ for the platform layer.
 
 > **Status: v0.1.4 — sunset.** No further development. Use `amalgame-ui-web`.
 
+## Prerequisites
+
+Same as [`amalgame-ui-sdl`](https://github.com/amalgame-lang/amalgame-ui-sdl#prerequisites)
+(SDL2 + SDL2_ttf), since this package pulls ui-sdl as a
+transitive dep:
+
+| OS / distro | Command |
+|---|---|
+| Debian / Ubuntu | `sudo apt install libsdl2-dev libsdl2-ttf-dev` |
+| Fedora / RHEL | `sudo dnf install SDL2-devel SDL2_ttf-devel` |
+| Arch / Manjaro | `sudo pacman -S sdl2 sdl2_ttf` |
+| macOS (Homebrew) | `brew install sdl2 sdl2_ttf` |
+| Windows (MSYS2) | `pacman -S mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf` |
+
+Full per-OS detail (deploy-time, SDL3 opt-in, static link variants)
+in the [ui-sdl README](https://github.com/amalgame-lang/amalgame-ui-sdl#prerequisites).
+
 ## Install
 
 ```bash
 amc package add github.com/amalgame-lang/amalgame-ui-forms@v0.0.1-dev
 ```
 
-Pulls in `amalgame-ui-sdl` transitively. Requires **amc 0.8.0+**
-and the SDL2 dev headers on the host (see `amalgame-ui-sdl`'s
-README for OS-specific package names).
+Pulls in `amalgame-ui-sdl` transitively. Requires **amc 0.8.0+**.
 
 ## Surface (planned for v0.1.0)
 
